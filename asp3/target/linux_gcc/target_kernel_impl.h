@@ -117,35 +117,33 @@
  */
 #if defined(__i386__)
 
-#define JMPBUF_PC                               5                       /* jmp_buf中でのPCの位置 */
-#define JMPBUF_SP                               4                       /* jmp_buf中でのSPの位置 */
-#define TASK_STACK_MERGIN               4U 
-#define DEFAULT_ISTKSZ                  SIGSTKSZ        /* シグナルスタックのサ
-イズ */
+#define JMPBUF_PC			5			/* jmp_buf中でのPCの位置 */
+#define JMPBUF_SP			4			/* jmp_buf中でのSPの位置 */
+#define TASK_STACK_MERGIN	4U
+#define DEFAULT_ISTKSZ		SIGSTKSZ	/* シグナルスタックのサイズ */
 
-#define PTR_MANGLE(var) asm volatile ("xorl %%gs:0x18,%0;"      \
-                                "roll $9,%0;"                   \
-                                :"=r"(var) :"0"(var))
+#define PTR_MANGLE(var) asm volatile ("xorl %%gs:0x18,%0;"	\
+									"roll $9,%0;"			\
+									:"=r"(var) :"0"(var))
  
-#define PTR_DEMANGLE(var) asm volatile ("rorl $9, %0;"          \
-                                "xorl %%gs:0x18, %0;"           \
-                                :"=r"(var) :"0"(var))
+#define PTR_DEMANGLE(var) asm volatile ("rorl $9, %0;"		\
+									"xorl %%gs:0x18, %0;"	\
+									:"=r"(var) :"0"(var))
 
 #elif defined(__x86_64__)
 
-#define JMPBUF_PC                               7                       /* jmp_buf中でのPCの位置 */
-#define JMPBUF_SP                               6                       /* jmp_buf中でのSPの位置 */
-#define TASK_STACK_MERGIN               8U 
-#define DEFAULT_ISTKSZ                  SIGSTKSZ        /* シグナルスタックのサ
-イズ */
+#define JMPBUF_PC			7			/* jmp_buf中でのPCの位置 */
+#define JMPBUF_SP			6			/* jmp_buf中でのSPの位置 */
+#define TASK_STACK_MERGIN	8U
+#define DEFAULT_ISTKSZ		SIGSTKSZ	/* シグナルスタックのサイズ */
 
-#define PTR_MANGLE(var) asm volatile ("xor %%fs:0x30,%0;"       \
-                                "rol $17, %0;"                  \
-                                :"=r"(var) :"0"(var))
+#define PTR_MANGLE(var) asm volatile ("xor %%fs:0x30,%0;"	\
+									"rol $17, %0;"			\
+									:"=r"(var) :"0"(var))
 
-#define PTR_DEMANGLE(var) asm volatile ("ror $17, %0;"          \
-                                "xor %%fs:0x30,%0;"             \
-                                :"=r"(var) :"0"(var))
+#define PTR_DEMANGLE(var) asm volatile ("ror $17, %0;"		\
+									"xor %%fs:0x30,%0;"		\
+									:"=r"(var) :"0"(var))
 
 #else
 #error architecture not supported
@@ -190,38 +188,36 @@ extern const INHINIB	inhinib_table[];
 /*
  *  シグナルセット操作マクロ
  */
-#   define sigequalset(set1, set2) \
-  (__extension__ ({ int __cnt = _SIGSET_NWORDS;                               \
-                    const sigset_t *__set1 = (const sigset_t *)(set1);        \
-                    const sigset_t *__set2 = (const sigset_t *)(set2);        \
-                    int __ret = 1;                                            \
-                    while (--__cnt >= 0) {                                    \
-                      if (__set1->__val[__cnt] != __set2->__val[__cnt]) {     \
-                        __ret = 0;                                            \
-                        break;                                                \
-                      }                                                       \
-                    };                                                        \
-                    __ret; }))
+#define sigequalset(set1, set2)													\
+	(__extension__ ({ int __cnt = _SIGSET_NWORDS;								\
+					const sigset_t *__set1 = (const sigset_t *)(set1);			\
+					const sigset_t *__set2 = (const sigset_t *)(set2);			\
+					int __ret = 1;												\
+					while (--__cnt >= 0) {										\
+						if (__set1->__val[__cnt] != __set2->__val[__cnt]) {		\
+							__ret = 0;											\
+							break;												\
+						}														\
+					};															\
+					__ret; }))
 
+#define sigassignset(set1, set2)												\
+	(__extension__ ({ int __cnt = _SIGSET_NWORDS;								\
+					sigset_t *__set1 = (sigset_t *)(set1);						\
+					const sigset_t *__set2 = (const sigset_t *)(set2);			\
+					while (--__cnt >= 0) {										\
+						__set1->__val[__cnt] = __set2->__val[__cnt];			\
+					};															\
+					0; }))
 
-#   define sigassignset(set1, set2) \
-  (__extension__ ({ int __cnt = _SIGSET_NWORDS;                               \
-                    sigset_t *__set1 = (sigset_t *)(set1);                    \
-                    const sigset_t *__set2 = (const sigset_t *)(set2);        \
-                    while (--__cnt >= 0) {                                    \
-                      __set1->__val[__cnt] = __set2->__val[__cnt];            \
-                    };                                                        \
-                    0; }))
-
-
-#   define sigjoinset(set1, set2) \
-  (__extension__ ({ int __cnt = _SIGSET_NWORDS;                               \
-                    sigset_t *__set1 = (sigset_t *)(set1);                    \
-                    const sigset_t *__set2 = (const sigset_t *)(set2);        \
-                    while (--__cnt >= 0) {                                    \
-                      __set1->__val[__cnt] |= __set2->__val[__cnt];           \
-                    };                                                        \
-                    0; }))
+#define sigjoinset(set1, set2)													\
+	(__extension__ ({ int __cnt = _SIGSET_NWORDS;								\
+					sigset_t *__set1 = (sigset_t *)(set1);						\
+					const sigset_t *__set2 = (const sigset_t *)(set2);			\
+					while (--__cnt >= 0) {										\
+						__set1->__val[__cnt] |= __set2->__val[__cnt];			\
+					};															\
+					0; }))
 
 /*
  *  割込み優先度マスクによるシグナルマスク（kernel_cfg.c）
@@ -499,22 +495,22 @@ extern void call_exit_kernel(void) NoReturn;
  */
 extern void	start_r(void);
 
-#define activate_context(p_tcb)                                 \
-{                                                               \
-        intptr_t pc;                                            \
-        intptr_t sp;                                            \
-                                                                \
-        pc = (intptr_t) start_r;                                \
-        PTR_MANGLE(pc);                                         \
-                                                                \
-        (p_tcb)->tskctxb.env[0].__jmpbuf[JMPBUF_PC] = pc;       \
-                                                                \
-        sp = ((((intptr_t)((char *)((p_tcb)->p_tinib->stk)      \
-                + (p_tcb)->p_tinib->stksz)) & ~0x0f)            \
-                - TASK_STACK_MERGIN);                           \
-        PTR_MANGLE(sp);                                         \
-                                                                \
-        (p_tcb)->tskctxb.env[0].__jmpbuf[JMPBUF_SP] = sp;       \
+#define activate_context(p_tcb)										\
+{																	\
+	intptr_t pc;													\
+	intptr_t sp;													\
+																	\
+	pc = (intptr_t) start_r;										\
+	PTR_MANGLE(pc);													\
+																	\
+	(p_tcb)->tskctxb.env[0].__jmpbuf[JMPBUF_PC] = pc;				\
+																	\
+	sp = ((((intptr_t)((char *)((p_tcb)->p_tinib->stk)				\
+							+ (p_tcb)->p_tinib->stksz)) & ~0x0f)	\
+							- TASK_STACK_MERGIN);					\
+	PTR_MANGLE(sp);													\
+																	\
+	(p_tcb)->tskctxb.env[0].__jmpbuf[JMPBUF_SP] = sp;				\
 }
 
 /*
