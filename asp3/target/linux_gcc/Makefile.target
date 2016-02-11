@@ -7,8 +7,8 @@
 #
 #  システム名，開発環境名の定義
 #
-SYS = macosx
-TOOL = xcode
+SYS = linux
+TOOL = gcc
 
 #
 #  ツール依存部ディレクトリ名の定義 
@@ -29,8 +29,8 @@ LD = ld
 AR = ar
 NM = nm
 RANLIB = ranlib
-OBJCOPY = gobjcopy
-OBJDUMP = gobjdump
+OBJCOPY = objcopy
+OBJDUMP = objdump
 
 #
 #  offset.hは使用しない
@@ -47,6 +47,7 @@ COPTS := -m32 -Werror $(COPTS)
 ifdef KERNEL_FUNCOBJS
 	COPTS := -Wno-unused-function $(COPTS)
 endif
+COPTS := $(COPTS) -U_FORTIFY_SOURCE
 
 #
 #  カーネルに関する定義

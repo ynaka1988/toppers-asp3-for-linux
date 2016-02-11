@@ -1,4 +1,4 @@
-PACKAGE asp3_target_macosx_xcode
+PACKAGE asp3_target_linux_gcc
 VERSION 3.0.0
 
 E_PACKAGE

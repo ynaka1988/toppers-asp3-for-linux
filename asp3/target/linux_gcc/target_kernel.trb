@@ -201,9 +201,11 @@ $kernelCfgC.add("const sigset_t _kernel_sigmask_table[8] = {")
       end
     end
   end
-  $kernelCfgC.add("\tUINT32_C(#{sprintf("0x%08x", intmask)}),")
+#  $kernelCfgC.add("\tUINT32_C(#{sprintf("0x%08x", intmask)}),")
+  $kernelCfgC.add("\t{ {UINT32_C(#{sprintf("0x%08x", intmask)}), 0} },")
 end
-$kernelCfgC.add("\tUINT32_C(#{sprintf("0x%08x", intmask)})")
+#$kernelCfgC.add("\tUINT32_C(#{sprintf("0x%08x", intmask)})")
+$kernelCfgC.add("\t{ {UINT32_C(#{sprintf("0x%08x", intmask)}), 0} }")
 $kernelCfgC.add2("};")
 
 #
@@ -215,5 +217,8 @@ $cfgData[:CFG_INT].each do |key, params|
     sigmask_disint_init |= (1 << (params[:intno] - 1))
   end
 end
-$kernelCfgC.add2("const sigset_t\t_kernel_sigmask_disint_init = " \
-					"UINT32_C(#{sprintf("0x%08x", sigmask_disint_init)});")
+#$kernelCfgC.add2("const sigset_t\t_kernel_sigmask_disint_init = " \
+#					"UINT32_C(#{sprintf("0x%08x", sigmask_disint_init)});")
+$kernelCfgC.add2("const sigset_t\t_kernel_sigmask_disint_init = {" \
+					"{ UINT32_C(#{sprintf("0x%08x", sigmask_disint_init)}), 0 } " \
+"};")

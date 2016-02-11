@@ -1,4 +1,4 @@
-E_PACKAGE asp3_macosx_xcode
+E_PACKAGE asp3_linux_gcc
 VERSION %date
 
 INCLUDE ../../MANIFEST
