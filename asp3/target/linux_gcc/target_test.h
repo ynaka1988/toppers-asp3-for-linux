@@ -46,8 +46,9 @@
 #define TOPPERS_TARGET_TEST_H
 
 #include <macosx.h>
-#define CPUEXC1					SIGUSR1	/* SIGINFO */
-#define RAISE_CPU_EXCEPTION			(raise(SIGUSR1))	/* (raise(SIGINFO)) */
+#define	SIGINFO					SIGPWR	/* A synonym for SIGPWR */
+#define CPUEXC1					SIGINFO
+#define RAISE_CPU_EXCEPTION		(raise(SIGINFO))
 #define PREPARE_RETURN_CPUEXC
 #define	STACK_SIZE				SIGSTKSZ
 #define LOOP_REF				ULONG_C(10000000)
