@@ -53,6 +53,14 @@
 #define TOPPERS_TARGET_KERNEL_H
 
 /*
+ * workround against a  missing definition of SIGIO
+ * in ${project}/gen/tInterruptRequest_tecsgen.c
+ */
+#ifndef	SIGIO
+#define	SIGIO	29	/* see <signal.h> */
+#endif
+
+/*
  *  ターゲット依存部でサポートできる機能
  */
 #define TOPPERS_TARGET_SUPPORT_DIS_INT		/* dis_int */
