@@ -373,7 +373,7 @@ t_get_ipm(void)
 /*
  *  割込み番号の範囲の判定
  */
-#define	VALID_INTNO(intno)	(1 <= (intno) && (intno) <= 30 \
+#define	VALID_INTNO(intno)	(1 <= (intno) && (intno) <= 31 \
 								&& (intno) != SIGKILL && (intno) != SIGSTOP)
 
 /*
