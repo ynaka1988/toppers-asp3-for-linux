@@ -4,6 +4,7 @@ VERSION 3.0.0
 E_PACKAGE
 MANIFEST
 Makefile.target
+glibc_sysdep.h
 macosx.h
 tPutLogMacOSX.c
 tPutLogMacOSX.cdl

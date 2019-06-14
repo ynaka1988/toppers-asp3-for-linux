@@ -115,6 +115,8 @@
 /*
  *  アーキテクチャ（プロセッサ）依存の定義
  */
+#include "glibc_sysdep.h"	/* PTR_MANGLE */
+
 #if defined(__i386__)
 
 #define JMPBUF_PC			5			/* jmp_buf中でのPCの位置 */
@@ -122,28 +124,12 @@
 #define TASK_STACK_MERGIN	4U
 #define DEFAULT_ISTKSZ		SIGSTKSZ	/* シグナルスタックのサイズ */
 
-#define PTR_MANGLE(var) asm volatile ("xorl %%gs:0x18,%0;"	\
-									"roll $9,%0;"			\
-									:"=r"(var) :"0"(var))
- 
-#define PTR_DEMANGLE(var) asm volatile ("rorl $9, %0;"		\
-									"xorl %%gs:0x18, %0;"	\
-									:"=r"(var) :"0"(var))
-
 #elif defined(__x86_64__)
 
 #define JMPBUF_PC			7			/* jmp_buf中でのPCの位置 */
 #define JMPBUF_SP			6			/* jmp_buf中でのSPの位置 */
 #define TASK_STACK_MERGIN	8U
 #define DEFAULT_ISTKSZ		SIGSTKSZ	/* シグナルスタックのサイズ */
-
-#define PTR_MANGLE(var) asm volatile ("xor %%fs:0x30,%0;"	\
-									"rol $17, %0;"			\
-									:"=r"(var) :"0"(var))
-
-#define PTR_DEMANGLE(var) asm volatile ("ror $17, %0;"		\
-									"xor %%fs:0x30,%0;"		\
-									:"=r"(var) :"0"(var))
 
 #else
 #error architecture not supported
