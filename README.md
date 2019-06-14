@@ -1,17 +1,21 @@
 # toppers-asp3-for-linux
 
-Mac OS Xターゲット依存部をLinuxに移植するにあたり、PTR_MANGLEマクロ定義を
-glibc-2.22ソースコードから流用している。 これにより，(すくなくともLinux
-ターゲット依存部の)コード全体がGPLの適用対象となる可能性がある．
+https://www.toppers.jp/asp3-kernel.html
 
 ## Platform
 
 * Ubuntu 16.04LTS (i386, x64)
-
+  * 32bit binary available
+  * 64bit binary available also
+ 
 ## Required packgaes
 
 * gcc-multilib (5.3.1-1ubuntu1)
 * ruby (2.3.0+1)
+
+## Notice
+
+"glibc_sysdep.h" contains PTR_MANGLE definitions from glibc sysdep.h (i386, x86_64).
 
 ## Quick Start (sample1)
     sudo apt-get install git gcc-multilib ruby
