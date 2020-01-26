@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2005-2014 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: allfunc.h 236 2014-09-28 16:24:33Z ertl-hiro $
+ *  $Id: allfunc.h 1079 2018-11-25 15:54:06Z ertl-hiro $
  */
 
 /*
@@ -81,7 +81,7 @@
 #define TOPPERS_tmecur
 #define TOPPERS_tmeset
 #define TOPPERS_tmereg
-#define TOPPERS_tmeenq
+#define TOPPERS_tmeenqrel
 #define TOPPERS_tmedeq
 #define TOPPERS_tmechk
 #define TOPPERS_tmeltim
@@ -250,6 +250,9 @@
 #define TOPPERS_intini
 #define TOPPERS_dis_int
 #define TOPPERS_ena_int
+#define TOPPERS_clr_int
+#define TOPPERS_ras_int
+#define TOPPERS_prb_int
 #define TOPPERS_chg_ipm
 #define TOPPERS_get_ipm
 

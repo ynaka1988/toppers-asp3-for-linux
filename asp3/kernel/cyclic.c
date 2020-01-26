@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: cyclic.c 451 2015-08-14 15:29:07Z ertl-hiro $
+ *  $Id: cyclic.c 1019 2018-10-24 02:51:36Z ertl-hiro $
  */
 
 /*
@@ -153,7 +153,7 @@ sta_cyc(ID cycid)
 	/*
 	 *  初回の起動のためのタイムイベントを登録する［ASPD1036］．
 	 */
-	tmevtb_enqueue(&(p_cyccb->tmevtb), p_cyccb->p_cycinib->cycphs);
+	tmevtb_enqueue_reltim(&(p_cyccb->tmevtb), p_cyccb->p_cycinib->cycphs);
 	ercd = E_OK;
 	unlock_cpu();
 

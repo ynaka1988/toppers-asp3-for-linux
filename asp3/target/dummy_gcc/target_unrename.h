@@ -10,8 +10,8 @@
 #undef dispatch
 #undef start_dispatch
 #undef exit_and_dispatch
-#undef ret_int
-#undef ret_exc
+#undef int_handler_entry
+#undef exc_handler_entry
 #undef call_exit_kernel
 #undef start_r
 #undef target_initialize
@@ -22,15 +22,9 @@
  */
 #undef target_hrt_initialize
 #undef target_hrt_terminate
-#undef target_hrt_get_current
-#undef target_hrt_set_event
-#undef target_hrt_raise_event
 #undef target_hrt_handler
 #undef target_ovrtimer_initialize
 #undef target_ovrtimer_terminate
-#undef target_ovrtimer_start
-#undef target_ovrtimer_stop
-#undef target_ovrtimer_get_current
 #undef target_ovrtimer_handler
 
 /*

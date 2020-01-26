@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: overrun.c 458 2015-08-21 14:59:09Z ertl-hiro $
+ *  $Id: overrun.c 1118 2018-12-12 00:34:17Z ertl-hiro $
  */
 
 /*
@@ -85,26 +85,8 @@
 #define LOG_REF_OVR_LEAVE(ercd, pk_rovr)
 #endif /* LOG_REF_OVR_LEAVE */
 
-#ifdef TOPPERS_ovrini
-
 /*
- *  オーバランタイマが動作中かを示すフラグ
- */
-bool_t	ovrtimer_flag;
-
-/*
- *  オーバランハンドラ機能の初期化
- */
-void
-initialize_overrun(void)
-{
-	ovrtimer_flag = false;
-}
-
-#endif /* TOPPERS_ovrini */
-
-/*
- *  オーバランハンドラ用タイマの動作開始
+ *  オーバランタイマの動作開始
  */
 #ifdef TOPPERS_ovrsta
 #ifndef OMIT_OVRTIMER_START
@@ -114,7 +96,6 @@ ovrtimer_start(void)
 {
 	if (p_runtsk->staovr) {
 		target_ovrtimer_start(p_runtsk->leftotm);
-		ovrtimer_flag = true;
 	}
 }
 
@@ -122,7 +103,7 @@ ovrtimer_start(void)
 #endif /* TOPPERS_ovrsta */
 
 /*
- *  オーバランハンドラ用タイマの停止
+ *  オーバランタイマの停止
  */
 #ifdef TOPPERS_ovrstp
 #ifndef OMIT_OVRTIMER_STOP
@@ -130,10 +111,8 @@ ovrtimer_start(void)
 void
 ovrtimer_stop(void)
 {
-	if (ovrtimer_flag) {
-		assert(p_runtsk != NULL && p_runtsk->staovr);
+	if (p_runtsk != NULL && p_runtsk->staovr) {
 		p_runtsk->leftotm = target_ovrtimer_stop();
-		ovrtimer_flag = false;
 	}
 }
 
@@ -153,7 +132,7 @@ sta_ovr(ID tskid, PRCTIM ovrtim)
 
 	LOG_STA_OVR_ENTER(tskid, ovrtim);
 	CHECK_UNL();
-	CHECK_OBJ(ovrinib[0].ovrhdr != NULL);
+	CHECK_OBJ(ovrinib.ovrhdr != NULL);
 	if (tskid == TSK_SELF && !sense_context()) {
 		p_tcb = p_runtsk;
 	}
@@ -169,7 +148,6 @@ sta_ovr(ID tskid, PRCTIM ovrtim)
 			(void) target_ovrtimer_stop();
 		}
 		target_ovrtimer_start(ovrtim);
-		ovrtimer_flag = true;
 	}
 	p_tcb->staovr = true;
 	p_tcb->leftotm = ovrtim;
@@ -196,7 +174,7 @@ stp_ovr(ID tskid)
 
 	LOG_STP_OVR_ENTER(tskid);
 	CHECK_UNL();
-	CHECK_OBJ(ovrinib[0].ovrhdr != NULL);
+	CHECK_OBJ(ovrinib.ovrhdr != NULL);
 	if (tskid == TSK_SELF && !sense_context()) {
 		p_tcb = p_runtsk;
 	}
@@ -209,7 +187,6 @@ stp_ovr(ID tskid)
 	if (!sense_context() && p_tcb == p_runtsk) {
 		if (p_runtsk->staovr) {
 			(void) target_ovrtimer_stop();
-			ovrtimer_flag = false;
 		}
 	}
 	p_tcb->staovr = false;
@@ -236,8 +213,8 @@ ref_ovr(ID tskid, T_ROVR *pk_rovr)
     
 	LOG_REF_OVR_ENTER(tskid, pk_rovr);
 	CHECK_TSKCTX_UNL();
-	CHECK_OBJ(ovrinib[0].ovrhdr != NULL);
-	if (tskid == TSK_SELF && !sense_context()) {
+	CHECK_OBJ(ovrinib.ovrhdr != NULL);
+	if (tskid == TSK_SELF) {
 		p_tcb = p_runtsk;
 	}
 	else {
@@ -270,10 +247,6 @@ ref_ovr(ID tskid, T_ROVR *pk_rovr)
 
 /*
  *  オーバランハンドラ起動ルーチン
- *
- *  オーバランハンドラの呼出し後に，呼出し前の状態（CPUロックフラグ，割
- *  込み優先度マスク）に戻さないのは，このルーチンからのリターン後に，
- *  割込み出口処理で元の状態に戻すためである．
  */
 #ifdef TOPPERS_ovrcal
 
@@ -282,7 +255,7 @@ call_ovrhdr(void)
 {
 	assert(sense_context());
 	assert(!sense_lock());
-	assert(ovrinib[0].ovrhdr != NULL);
+	assert(ovrinib.ovrhdr != NULL);
 
 	lock_cpu();
 	if (p_runtsk != NULL && p_runtsk->staovr && p_runtsk->leftotm == 0U) {
@@ -290,7 +263,7 @@ call_ovrhdr(void)
 		unlock_cpu();
 
 		LOG_OVR_ENTER(p_runtsk);
-		((OVRHDR)(ovrinib[0].ovrhdr))(TSKID(p_runtsk),
+		((OVRHDR)(ovrinib.ovrhdr))(TSKID(p_runtsk),
 											p_runtsk->p_tinib->exinf);
 		LOG_OVR_LEAVE(p_runtsk);
 	}

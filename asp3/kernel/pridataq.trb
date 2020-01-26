@@ -5,7 +5,7 @@
 #       Advanced Standard Profile Kernel
 # 
 #   Copyright (C) 2015 by FUJI SOFT INCORPORATED, JAPAN
-#   Copyright (C) 2015,2016 by Embedded and Real-Time Systems Laboratory
+#   Copyright (C) 2015-2019 by Embedded and Real-Time Systems Laboratory
 #               Graduate School of Information Science, Nagoya Univ., JAPAN
 # 
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 # 
-#   $Id: pridataq.trb 588 2016-02-05 12:54:58Z ertl-hiro $
+#   $Id: pridataq.trb 1167 2019-02-03 17:06:17Z ertl-hiro $
 # 
 
 #
@@ -50,38 +50,39 @@ class PridataqObject < KernelObject
   end
 
   def prepare(key, params)
-    # pdqatrが無効の場合（E_RSATR）［NGKI1804］
+    # パラメータが省略された時のデフォルト値の設定
+    params[:pdqmb] ||= "NULL"
+
+    # pdqatrが無効の場合（E_RSATR）［NGKI1804］［NGKI1795］
     #（TA_TPRI以外のビットがセットされている場合）
     if (params[:pdqatr] & ~($TA_TPRI)) != 0
       error_illegal_id("E_RSATR", params, :pdqatr, :pdqid)
     end
 
-    # (TMIN_DPRI <= maxdpri && maxdpri <= TMAX_DPRI)でない場合（E_PAR）
-    # ［NGKI1819］
+	# maxdpriが有効範囲外の場合（E_PAR）［NGKI1819］
+    #（TMIN_DPRI <= maxdpri && maxdpri <= TMAX_DPRIでない場合）
     if !($TMIN_DPRI <= params[:maxdpri] && params[:maxdpri] <= $TMAX_DPRI)
       error_illegal_id("E_PAR", params, :maxdpri, :pdqid)
     end
 
     # pdqmbがNULLでない場合（E_NOSPT）［ASPS0142］
     if params[:pdqmb] != "NULL"
-      error_illegal_id("E_PAR", params, :pdqmb, :pdqid)
+      error_illegal_id("E_NOSPT", params, :pdqmb, :pdqid)
     end
 
     # 優先度データキュー管理領域
     if params[:pdqcnt] > 0
-      $kernelCfgC.add("static PDQMB _kernel_pdqmb_#{params[:pdqid]}" \
-												"[#{params[:pdqcnt]}];")
+      pdqmbName = "_kernel_pdqmb_#{params[:pdqid]}"
+      $kernelCfgC.add("static PDQMB #{pdqmbName}[#{params[:pdqcnt]}];")
+      params[:pdqinib_pdqmb] = pdqmbName
+    else
+      params[:pdqinib_pdqmb] = "NULL"
     end
   end
 
   def generateInib(key, params)
-    if params[:pdqcnt] > 0
-      pdqmb = "_kernel_pdqmb_#{params[:pdqid]}"
-    else
-      pdqmb = "NULL"
-    end
     return("(#{params[:pdqatr]}), (#{params[:pdqcnt]}), " \
-									"(#{params[:maxdpri]}), #{pdqmb}")
+				"(#{params[:maxdpri]}), #{params[:pdqinib_pdqmb]}")
   end
 end
 

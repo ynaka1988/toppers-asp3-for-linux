@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2016 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: startup.c 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: startup.c 1136 2018-12-31 16:32:45Z ertl-hiro $
  */
 
 /*
@@ -83,6 +83,8 @@ bool_t	kerflg = false;
 void
 sta_ker(void)
 {
+	uint_t	i;
+
 	/*
 	 *  TECSの初期化
 	 */
@@ -107,7 +109,9 @@ sta_ker(void)
 	/*
 	 *  初期化ルーチンの実行
 	 */ 
-	call_inirtn();
+	for (i = 0; i < tnum_inirtn; i++) {
+		(*(inirtnb_table[i].inirtn))(inirtnb_table[i].exinf);
+	}
 
 	/*
 	 *  高分解能タイマの設定
@@ -170,10 +174,14 @@ ext_ker(void)
 void
 exit_kernel(void)
 {
+	uint_t	i;
+
 	/*
 	 *  終了処理ルーチンの実行
 	 */
-	call_terrtn();
+	for (i = 0; i < tnum_terrtn; i++) {
+		(*(terrtnb_table[i].terrtn))(terrtnb_table[i].exinf);
+	}
 
 	/*
 	 *  ターゲット依存の終了処理

@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tecs_kernel.h 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tecs_kernel.h 911 2018-03-07 00:24:06Z ertl-hiro $
  */
 
 /*
@@ -46,13 +46,9 @@
 
 #include <kernel.h>
 
-extern void	tTask_start(intptr_t exinf);
-
-extern void tTimeEventHandler_start(intptr_t exinf);
+extern void tTask_start(intptr_t exinf);
 
 extern void tISR_start(intptr_t exinf);
-extern void tInterruptHandler_start(void);
-extern void tCpuExceptionHandler_start(void *p_excinf);
 
 extern void tInitializeRoutine_start(intptr_t exinf);
 extern void tTerminateRoutine_start(intptr_t exinf);

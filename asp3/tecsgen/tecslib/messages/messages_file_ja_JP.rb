@@ -3,7 +3,7 @@
 #  TECS Generator
 #      Generator for TOPPERS Embedded Component System
 #  
-#   Copyright (C) 2008-2014 by TOPPERS Project
+#   Copyright (C) 2008-2018 by TOPPERS Project
 #--
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
 #   ア（本ソフトウェアを改変したものを含む．以下同じ）を使用・複製・改
@@ -34,7 +34,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 #  
-#   $Id: messages_file_ja_JP.rb 2061 2014-05-31 22:15:33Z okuma-top $
+#   $Id: messages_file_ja_JP.rb 2852 2018-04-09 10:38:29Z okuma-top $
 #++
 
 
@@ -64,7 +64,7 @@ class TECSMsg
  * このファイルは tecsgen によりテンプレートとして自動生成されました
  * このファイルを編集して使用することが意図されていますが
  * tecsgen の再実行により上書きされてしまうため、通常
- *   gen/%s_template.c => src/%s.c
+ *   gen/%s_templ.c => src/%s.c
  * のように名前, フォルダを変更してから修正します
  */
 "
@@ -126,6 +126,10 @@ class TECSMsg
 @@comment[ :CPM_comment ] = " /* 呼び口関数マクロ %s */\n"
 @@comment[ :CPMA_comment ] = "/* 呼び口関数マクロ（短縮形）%s */\n"
 @@comment[ :EPM_comment ] = "\n/* 受け口関数マクロ（短縮形） %s */\n"
+@@comment[ :CRD_comment ] = "/* ディスクリプタ参照関数 %s */\n"
+@@comment[ :CRDA_comment ] = "\n/* ディスクリプタ参照マクロ（短縮形） %s */\n"
+@@comment[ :SDF_comment ] = "/* ディスクリプタ設定関数 %s */\n"
+@@comment[ :SDMA_comment ] = "\n/* ディスクリプタ設定マクロ（短縮形） %s */\n"
 @@comment[ :CTIX_comment ] = "\n/* セルタイプのIDX型 %s */\n"
 @@comment[ :EPP_comment ] = "\n/* 受け口関数プロトタイプ宣言 %s */\n"
 @@comment[ :EPSP_comment ] = "\n/* 受け口スケルトン関数プロトタイプ宣言（VMT不要最適化により参照するもの） %s */\n"
@@ -158,5 +162,7 @@ class TECSMsg
 @@comment[ :TCPF_comment ] = " * 呼び口関数 %s\n"
 @@comment[ :TEPF_comment ] = "/* 受け口関数 %s */\n"
 @@comment[ :TEFB_comment ] = "\t/* ここに処理本体を記述します %s */\n"
+@@comment[ :MCPP_comment ] = "/* CB プロトタイプ宣言 %s */\n"
+@@comment[ :MCPB_comment ] = "/* CB プロトタイプ宣言 %s */\n"
 
 end

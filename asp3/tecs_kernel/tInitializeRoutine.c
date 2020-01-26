@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tInitializeRoutine.c 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tInitializeRoutine.c 911 2018-03-07 00:24:06Z ertl-hiro $
  */
 
 #include "tInitializeRoutine_tecsgen.h"
@@ -45,7 +45,8 @@
 /*
  *  初期化ルーチン本体の呼出し
  */
-void  tInitializeRoutine_start(intptr_t exinf)
+void
+tInitializeRoutine_start(intptr_t exinf)
 {
 	CELLCB	*p_cellcb = (CELLCB *) exinf;
 

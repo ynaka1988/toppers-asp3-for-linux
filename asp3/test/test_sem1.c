@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2008-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2008-2019 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_sem1.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_sem1.c 1139 2019-01-04 16:27:31Z ertl-hiro $
  */
 
 /* 
@@ -48,40 +48,40 @@
  * 【テスト項目】
  *
  *	(A) sig_semの静的エラーのテスト
- *		(A-1) CPUロック状態からの呼出し
- *		(A-2) semidが不正（小さすぎる）
- *		(A-3) semidが不正（大きすぎる）
- *	(B) sig_semによりセマフォ待ち状態のタスクが待ち解除される
+ *		(A-1) CPUロック状態からの呼出し［NGKI1501］
+ *		(A-2) semidが不正（小さすぎる）［NGKI1502］
+ *		(A-3) semidが不正（大きすぎる）［NGKI1502］
+ *	(B) sig_semによりセマフォ待ち状態のタスクが待ち解除される［NGKI1505］
  *		(B-1) 待ち解除されたタスクに切り換わる
  *		(B-2) ディスパッチ保留状態で，切り換わらない
  *		(B-3) 待ち解除されたタスクが強制待ち状態で，切り換わらない
  *		(B-4) 待ち解除されたタスクが優先度が低く，切り換わらない
- *	(C) sig_semによりセマフォの資源数が1増える
+ *	(C) sig_semによりセマフォの資源数が1増える［NGKI1508］
  *		(C-1) セマフォの資源数が0から1になる
  *		(C-2) セマフォの資源数が1から2になる
- *	(D) sig_semがE_QOVRエラーとなる
+ *	(D) sig_semがE_QOVRエラーとなる［NGKI1509］
  *		(D-1) セマフォの最大資源数が1の時
  *		(D-2) セマフォの最大資源数が2の時
  *	(E) wai_semの静的エラーのテスト
- *		(E-1) 非タスクコンテキストからの呼出し
- *		(E-2) CPUロック状態からの呼出し
- *		(E-3) ディスパッチ禁止状態からの呼出し
- *		(E-4) 割込み優先度マスク全解除でない状態からの呼出し
- *		(E-5) semidが不正（小さすぎる）
- *		(E-6) semidが不正（大きすぎる）
- *	(F) wai_semによりセマフォの資源数が1減る
+ *		(E-1) 非タスクコンテキストからの呼出し［NGKI1513］
+ *		(E-2) CPUロック状態からの呼出し［NGKI1514］
+ *		(E-3) ディスパッチ禁止状態からの呼出し［NGKI1515］
+ *		(E-4) 割込み優先度マスク全解除でない状態からの呼出し［NGKI1515］
+ *		(E-5) semidが不正（小さすぎる）［NGKI1517］
+ *		(E-6) semidが不正（大きすぎる）［NGKI1517］
+ *	(F) wai_semによりセマフォの資源数が1減る［NGKI1524］
  *		(F-1) セマフォの資源数が1から0になる
  *		(F-2) セマフォの資源数が2から1になる
- *	(G) wai_semによりセマフォ待ち状態になる
+ *	(G) wai_semによりセマフォ待ち状態になる［NGKI1525］
  *		(G-1) TA_TNULL属性のセマフォで，待っているタスクがなかった場合
  *		(G-2) TA_TNULL属性のセマフォで，待っているタスクがあった場合
  *		(G-3) TA_TPRI属性のセマフォで，待っているタスクがなかった場合
  *		(G-4) TA_TPRI属性のセマフォで，優先度が高いタスクが待っている場合
  *		(G-5) TA_TPRI属性のセマフォで，優先度が同じタスクが待っている場合
  *		(G-6) TA_TPRI属性のセマフォで，優先度が低いタスクが待っている場合
- *	(H) セマフォ待ち状態が強制解除される
- *	(I) セマフォ待ち状態の間にセマフォが初期化される
- *	(J) セマフォの資源数の初期値が正しく設定される
+ *	(H) セマフォ待ち状態が強制解除される［NGKI1522］
+ *	(I) セマフォ待ち状態の間にセマフォが初期化される［NGKI1523］
+ *	(J) セマフォの資源数の初期値が正しく設定される［NGKI1485］
  *		(J-1) セマフォの資源数の初期値が0
  *		(J-2) セマフォの資源数の初期値が1
  *		(J-3) セマフォの資源数の初期値が2
@@ -131,7 +131,7 @@
  *  6:	ref_sem(SEM1, &rsem)
  *		assert(rsem.wtskid == TSK_NONE)
  *		assert(rsem.semcnt == 0)
- *	7:	sta_alm(ALM1, 10000U)
+ *	7:	sta_alm(ALM1, TEST_TIME_CP) ... ALM1が実行開始するまで
  *	8:	wai_sem(SEM1)						... (G-1)
  *	== ALM1 ==
  *	9:	wai_sem(SEM1) -> E_CTX				... (E-1)
@@ -185,7 +185,7 @@
  *  38:	ref_sem(SEM2, &rsem)
  *		assert(rsem.wtskid == TSK_NONE)
  *		assert(rsem.semcnt == 2)
- *	39:	tslp_tsk(10000U) -> E_TMOUT
+ *	39:	tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK3（続き）==
  *	40:	wai_sem(SEM3)						... (G-4)
  *	== TASK1（続き）==
@@ -203,17 +203,17 @@
  *		wai_sem(SEM1) -> E_RLWAI
  *	== TASK1（続き）==
  *	48:	sig_sem(SEM3)						... (B-4)
- *	49:	tslp_tsk(10000U) -> E_TMOUT
+ *	49:	tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK4（続き）==
  *	50:	ext_tsk() -> noreturn
  *	== TASK1（続き）==
  *	51:	sig_sem(SEM3)						... (B-4)
- *	52:	tslp_tsk(10000U) -> E_TMOUT
+ *	52:	tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK5（続き）==
  *	53:	ext_tsk() -> noreturn
  *	== TASK1（続き）==
  *	54:	sig_sem(SEM3)						... (B-4)
- *	55:	tslp_tsk(10000U) -> E_TMOUT
+ *	55:	tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK3（続き）==
  *	56:	ext_tsk() -> noreturn
  *	== TASK1（続き）==
@@ -429,7 +429,7 @@ task1(intptr_t exinf)
 	check_assert(rsem.semcnt == 2);
 
 	check_point(39);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(41);
@@ -453,7 +453,7 @@ task1(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(49);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(51);
@@ -461,7 +461,7 @@ task1(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(52);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(54);
@@ -469,7 +469,7 @@ task1(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(55);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(57);
@@ -562,7 +562,7 @@ task3(intptr_t exinf)
 	check_assert(rsem.semcnt == 0);
 
 	check_point(7);
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	check_point(8);

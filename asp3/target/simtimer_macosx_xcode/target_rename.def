@@ -1,0 +1,36 @@
+# kernel_cfg.c
+sigmask_table
+sigmask_disint_init
+
+# target_kernel_impl.c
+sigmask_intlock
+sigmask_cpulock
+lock_flag
+saved_sigmask
+intpri_value
+sigmask_disint
+dispatch
+exit_and_dispatch
+call_exit_kernel
+start_r
+target_initialize
+target_exit
+
+# sim_timer.c
+target_timer_initialize
+target_timer_terminate
+target_hrt_get_current
+target_hrt_set_event
+target_hrt_clear_event
+target_hrt_raise_event
+target_hrt_handler
+target_ovrtimer_start
+target_ovrtimer_stop
+target_ovrtimer_get_current
+target_ovrtimer_handler
+target_custom_idle
+simtim_advance
+simtim_add
+hook_hrt_set_event
+hook_hrt_clear_event
+hook_hrt_raise_event

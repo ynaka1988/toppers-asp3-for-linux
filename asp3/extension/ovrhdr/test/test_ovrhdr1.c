@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2014-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_ovrhdr1.c 444 2015-08-13 04:39:19Z ertl-hiro $
+ *  $Id: test_ovrhdr1.c 1173 2019-03-11 04:48:06Z ertl-hiro $
  */
 
 /* 
@@ -42,133 +42,137 @@
  *
  * 【テストの目的】
  *
+ *	オーバランハンドラ機能に関する仕様の中で，ASP3カーネルとHRP3カーネ
+ *	ルの両者に共通で，オーバランハンドラを定義した状態で，機能テストに
+ *	よりテストできるものをテストする．
+ *
  * 【テスト項目】
+ *
+ *	test_ovrhdr.txtを参照すること．
  *
  * 【使用リソース】
  *
  *	TASK1: 中優先度タスク，メインタスク，最初から起動
  *	TASK2: 高優先度タスク
- *	TASK3: 高優先度タスク
  *	ALM1:  アラームハンドラ
  *	OVR:   オーバランハンドラ
  *
  * 【テストシーケンス】
  *
  *	== TASK1（優先度：中）==
- *	1:	ref_ovr(TASK2, &rovr)
- *		assert(rovr.ovrstat == TOVR_STP)
- *		// TASK2, TASK3に対して，残りプロセッサ時間20000μ秒で，オーバラン
- *		// ハンドラを動作開始する
- *		sta_ovr(TASK2, 20000U)
+ *	1:	ref_ovr(TASK2, &rovr)								...［NGKI2656_T1］
+ *															...［NGKI2661_T3］
+ *															...［NGKI2662_T3］
+ *		assert(rovr.ovrstat == TOVR_STP)					...［NGKI2587_T1］
+ *															...［NGKI2665_T1］
+ *		// TASK2に対して，残りプロセッサ時間(2 * UNIT_TIME)で，
+ *		// オーバランハンドラを動作開始する
+ *		sta_ovr(TASK2, 2 * UNIT_TIME)						...［NGKI3546_T1］
+ *															...［NGKI2637_T3］
  *		ref_ovr(TASK2, &rovr)
- *		assert(rovr.ovrstat == TOVR_STA)
- *		assert(rovr.leftotm == 20000U)
- *		sta_ovr(TASK3, 20000U)
- *		// 10000μ秒後にALM1を動作させる
- *		sta_alm(ALM1, 10000U)
- *		DO(hrtcnt1 = fch_hrt())
+ *		assert(rovr.ovrstat == TOVR_STA)					...［NGKI2639_T1］
+ *															...［NGKI2665_T2］
+ *		assert(rovr.leftotm == 2 * UNIT_TIME)				...［NGKI3771_T1］
+ *															...［NGKI2639_T2］
+ *		// TASK2を起動する
  *		act_tsk(TASK2)
- *	== TASK2（優先度：高）==
- *		// start_rでオーバランタイマが動作開始する
- *	2:	act_tsk(TASK3)
- *		DO(while(!task2_flag1))
+ *	== TASK2-1（優先度：高，1回目）==
+ *		// UNIT_TIME後にALM1を動作させる
+ *	2:	sta_alm(ALM1, UNIT_TIME)
+ *		DO(while(!task2_flag1))			// ここでUNIT_TIMEを消費
  *	== ALM1-1（1回目）==
  *		// TASK2の実行途中でALM1が動作する
- *		// 割込み入口処理でオーバランタイマが停止する
- *	3:	rot_rdq(HIGH_PRIORITY)
+ *	3:	DO(task2_flag1 = true)
  *		RETURN
- *	== TASK3（優先度：高）==
- *		// start_rでオーバランタイマが動作開始する
- *		// TASK2のオーバランハンドラ状態を確認する
- *	4:	ref_ovr(TASK2, &rovr)
+ *	== TASK2-1（続き）==
+ *	4:	ref_ovr(TSK_SELF, &rovr)							...［NGKI2669_T1］
  *		assert(rovr.ovrstat == TOVR_STA)
- *		assert(5000U <= rovr.leftotm && rovr.leftotm <= 15000U)
- *		DO(while(!task3_flag1))
- *	== OVR-1（1回目）==
- *		// TASK3の残りプロセッサ時間がなくなる
- *	5:	assert(tskid == TASK3)
- *		DO(task3_flag1 = true)
- *		RETURN
- *	== TASK3（続き）==
- *	6:	DO(task2_flag1 = true)
- *		slp_tsk()
- *	== TASK2（続き）==
- *		// 割込み出口処理でオーバランタイマが動作開始する
- *	7:	DO(while(!task2_flag2))
- *	== OVR-2（2回目）==
+ *		assert(0 < rovr.leftotm && rovr.leftotm < UNIT_TIME)...［NGKI2588_T1］
+ *															...［NGKI2590_T1］
+ *															...［NGKI2666_T1］
+ *		DO(while(!task2_flag2))			// ここで残りの時間を消費
+ *	== OVR-1（1回目）==										...［NGKI2589_T1］
  *		// TASK2の残りプロセッサ時間がなくなる
- *	8:	assert(tskid == TASK2)
+ *	5:	assert(tskid == TASK2)								...［NGKI2605_T1］
+ *		assert(exinf == 2)									...［NGKI2605_T2］
  *		DO(task2_flag2 = true)
  *		RETURN
- *	== TASK2（続き）==
- *	9:	slp_tsk()
+ *	== TASK2-1（続き）==
+ *	6:	ref_ovr(TSK_SELF, &rovr)
+ *		assert(rovr.ovrstat == TOVR_STP)					...［NGKI3993_T1］
+ *		ext_tsk()
  *	== TASK1（続き）==
- *	10:	DO(hrtcnt2 = fch_hrt())
- *		assert(40000U <= hrtcnt2 - hrtcnt1 && hrtcnt2 - hrtcnt1 <= 50000U)
- *		ref_ovr(TASK2, &rovr)
- *		assert(rovr.ovrstat == TOVR_STP)
- *		sta_ovr(TASK2, 20000U)
- *		sta_alm(ALM1, 10000U)
- *		DO(hrtcnt1 = fch_hrt())
- *		wup_tsk(TASK2)
- *	== TASK2（続き）==
- *		// dispatch_rでオーバランタイマが動作開始する
- *	11:	wup_tsk(TASK3)
- *		DO(while(!task2_flag3))
+ *	7:	ref_ovr(TASK2, &rovr)
+ *		assert(rovr.ovrstat == TOVR_STP)					...［NGKI2587_T2］
+ *		stp_ovr(TASK2)										...［NGKI3547_T1］
+ *															...［NGKI2651_T3］
+ *		assert(rovr.ovrstat == TOVR_STP)					...［NGKI2654_T1］
+ *		// TASK2を起動する
+ *		act_tsk(TASK2)
+ *	== TASK2-2（優先度：高，2回目）==
+ *	8:	sta_ovr(TSK_SELF, UNIT_TIME)						...［NGKI2641_T1］
+ *		ref_ovr(TSK_SELF, &rovr)
+ *		assert(rovr.ovrstat == TOVR_STA)
+ *		stp_ovr(TSK_SELF)									...［NGKI2655_T1］
+ *		ref_ovr(TSK_SELF, &rovr)
+ *		assert(rovr.ovrstat == TOVR_STP)					...［NGKI2653_T1］
+ *		// UNIT_TIME後にALM1を動作させる
+ *		sta_alm(ALM1, UNIT_TIME)
+ *		DO(while(!task2_flag3))			// ここでUNIT_TIMEを消費
  *	== ALM1-2（2回目）==
  *		// TASK2の実行途中でALM1が動作する
- *		// 割込み入口処理でオーバランタイマが停止する
- *	12:	DO(task2_flag3 = true)
+ *	9:	sta_ovr(TASK2, UNIT_TIME)							...［NGKI3546_T2］
+ *		DO(task2_flag3 = true)
  *		RETURN
- *	== TASK2（続き）==
- *	13:	rot_rdq(HIGH_PRIORITY)
- *		// dispatch_rでオーバランタイマが停止する
- *	== TASK3（続き）==
- *	14:	sta_alm(ALM1, 10000U)
- *		sta_ovr(TSK_SELF, 20000U)
- *		// sta_ovrでオーバランタイマが動作開始する
- *		// TASK2の残りプロセッサ時間を20000μ秒に設定しなおす
- *		sta_ovr(TASK2, 20000U)
- *	15:	DO(while(!task3_flag2))
+ *	== TASK2-2（続き）==
+ *	10:	ref_ovr(TSK_SELF, &rovr)
+ *		assert(rovr.ovrstat == TOVR_STA)
+ *		assert(0 < rovr.leftotm && rovr.leftotm < UNIT_TIME)
+ *		sta_ovr(TSK_SELF, 2 * UNIT_TIME)
+ *		ref_ovr(TSK_SELF, &rovr)
+ *		assert(rovr.ovrstat == TOVR_STA)					...［NGKI2640_T1］
+ *		assert(UNIT_TIME < rovr.leftotm && rovr.leftotm < 2 * UNIT_TIME)
+ *															...［NGKI2640_T2］
+ *		// UNIT_TIME後にALM1を動作させる
+ *		sta_alm(ALM1, UNIT_TIME)
+ *		DO(while(!task2_flag4))			// ここでUNIT_TIMEを消費
  *	== ALM1-3（3回目）==
- *		// TASK3の実行途中でALM1が動作する
- *		// 割込み入口処理でオーバランタイマが停止する
- *	16:	DO(task3_flag2 = true)
+ *		// TASK2の実行途中でALM1が動作する
+ *	11:	stp_ovr(TASK2)										...［NGKI3547_T2］
+ *		DO(task2_flag4 = true)
  *		RETURN
- *	== TASK3（続き）==
- *		// TASK3の残りプロセッサ時間を20000μ秒に設定しなおす
- *	17:	sta_ovr(TSK_SELF, 20000U)
- *		// sta_ovrでオーバランタイマが停止＆動作開始する
- *		DO(while(!task3_flag3))
- *	== OVR-3（3回目）==
- *		// TASK3の残りプロセッサ時間がなくなる
- *	18:	DO(task3_flag3 = true)
- *		sta_ovr(TSK_SELF, 20000U) -> E_ID
- *		// TASK3の残りプロセッサ時間を20000μ秒に設定しなおす
- *		sta_ovr(TASK3, 10000U)
+ *	== TASK2-2（続き）==
+ *	12:	ref_ovr(TSK_SELF, &rovr)
+ *		assert(rovr.ovrstat == TOVR_STP)
+ *
+ *		// エラーチェックのテスト
+ *	13:	loc_cpu()
+ *		sta_ovr(TSK_SELF, UNIT_TIME) -> E_CTX				...［NGKI2634_T1］
+ *		stp_ovr(TSK_SELF) -> E_CTX							...［NGKI2648_T1］
+ *		ref_ovr(TSK_SELF, &rovr) -> E_CTX					...［NGKI2658_T1］
+ *		unl_cpu()
+ *		sta_ovr(TSKID_TOO_SMALL_TASK, UNIT_TIME) -> E_ID	...［NGKI2635_T1］
+ *		sta_ovr(TSKID_TOO_LARGE, UNIT_TIME) -> E_ID			...［NGKI2635_T3］
+ *		stp_ovr(TSKID_TOO_SMALL_TASK) -> E_ID				...［NGKI2649_T1］
+ *		stp_ovr(TSKID_TOO_LARGE) -> E_ID					...［NGKI2649_T3］
+ *		ref_ovr(TSKID_TOO_SMALL_TASK, &rovr) -> E_ID		...［NGKI2659_T1］
+ *		ref_ovr(TSKID_TOO_LARGE, &rovr) -> E_ID				...［NGKI2659_T2］
+ *		sta_ovr(TSK_SELF, 0U) -> E_PAR						...［NGKI2643_T1］
+ *		sta_ovr(TSK_SELF, TMAX_OVRTIM + 1) -> E_PAR			...［NGKI2595_T2］
+ *															...［NGKI2643_T2］
+ *		sta_ovr(TSK_SELF, TMAX_OVRTIM)						...［NGKI2595_T1］
+ *		// UNIT_TIME後にALM1を動作させる
+ *		sta_alm(ALM1, UNIT_TIME)
+ *		DO(while(!task2_flag5))			// ここでUNIT_TIMEを消費
+ *	== ALM1-4（4回目）==
+ *		// TASK2の実行途中でALM1が動作する
+ *	14:	sta_ovr(TSKID_TOO_SMALL_INT, UNIT_TIME) -> E_ID		...［NGKI2635_T2］
+ *		stp_ovr(TSKID_TOO_SMALL_INT) -> E_ID				...［NGKI2649_T2］
+ *		ref_ovr(TASK2, &rovr) -> E_CTX						...［NGKI2657_T1］
+ *		DO(task2_flag5 = true)
  *		RETURN
- *	== TASK3（続き）==
- *	19:	DO(while(!task3_flag4))
- *	== OVR-4（4回目）==
- *		// TASK3の残りプロセッサ時間がなくなる
- *	20:	DO(task3_flag4 = true)
- *		rot_rdq(HIGH_PRIORITY)
- *		RETURN
- *	== TASK2（続き）==
- *		// dispatch_rでオーバランタイマが動作開始する
- *	21:	DO(while(!task2_flag4))
- *	== OVR-5（5回目）==
- *		// TASK2の残りプロセッサ時間がなくなる
- *	22:	DO(task2_flag4 = true)
- *		RETURN
- *	== TASK2（続き）==
- *	23:	slp_tsk()
- *	== TASK3（続き）==
- *	24:	slp_tsk()
- *	== TASK1（続き）==
- *	25:	DO(hrtcnt2 = fch_hrt())
- *		assert(70000U <= hrtcnt2 - hrtcnt1 && hrtcnt2 - hrtcnt1 <= 80000U)
- *	26:	END
+ *	== TASK2-2（続き）==
+ *	15:	END
  */
 
 #include <kernel.h>
@@ -177,16 +181,25 @@
 #include "kernel_cfg.h"
 #include "test_ovrhdr1.h"
 
+/*
+ *  範囲外のタスクIDの定義
+ */
+#define TSKID_TOO_SMALL_TASK	(-1)
+#define TSKID_TOO_SMALL_INT		0
+#define TSKID_TOO_LARGE			((TNUM_TSKID) + 1)
+
+/*
+ *  TOPPERS_SUPPORT_OVRHDRがマクロ定義されていることの確認［NGKI2599_T1］
+ */
+#ifndef TOPPERS_SUPPORT_OVRHDR
+#error TOPPERS_SUPPORT_OVRHDR is not defined.
+#endif /* TOPPERS_SUPPORT_OVRHDR */
+
 volatile bool_t	task2_flag1 = false;
 volatile bool_t	task2_flag2 = false;
 volatile bool_t	task2_flag3 = false;
 volatile bool_t	task2_flag4 = false;
-volatile bool_t	task3_flag1 = false;
-volatile bool_t	task3_flag2 = false;
-volatile bool_t	task3_flag3 = false;
-volatile bool_t	task3_flag4 = false;
-
-HRTCNT		hrtcnt1, hrtcnt2;
+volatile bool_t	task2_flag5 = false;
 
 /* DO NOT DELETE THIS LINE -- gentest depends on it. */
 
@@ -196,19 +209,22 @@ void
 alarm1_handler(intptr_t exinf)
 {
 	ER_UINT	ercd;
+	T_ROVR	rovr;
 
 	switch (++alarm1_count) {
 	case 1:
 		check_point(3);
-		ercd = rot_rdq(HIGH_PRIORITY);
-		check_ercd(ercd, E_OK);
+		task2_flag1 = true;
 
 		return;
 
 		check_point(0);
 
 	case 2:
-		check_point(12);
+		check_point(9);
+		ercd = sta_ovr(TASK2, UNIT_TIME);
+		check_ercd(ercd, E_OK);
+
 		task2_flag3 = true;
 
 		return;
@@ -216,8 +232,28 @@ alarm1_handler(intptr_t exinf)
 		check_point(0);
 
 	case 3:
-		check_point(16);
-		task3_flag2 = true;
+		check_point(11);
+		ercd = stp_ovr(TASK2);
+		check_ercd(ercd, E_OK);
+
+		task2_flag4 = true;
+
+		return;
+
+		check_point(0);
+
+	case 4:
+		check_point(14);
+		ercd = sta_ovr(TSKID_TOO_SMALL_INT, UNIT_TIME);
+		check_ercd(ercd, E_ID);
+
+		ercd = stp_ovr(TSKID_TOO_SMALL_INT);
+		check_ercd(ercd, E_ID);
+
+		ercd = ref_ovr(TASK2, &rovr);
+		check_ercd(ercd, E_CTX);
+
+		task2_flag5 = true;
 
 		return;
 
@@ -234,57 +270,15 @@ static uint_t	overrun_count = 0;
 void
 overrun_handler(ID tskid, intptr_t exinf)
 {
-	ER_UINT	ercd;
 
 	switch (++overrun_count) {
 	case 1:
 		check_point(5);
-		check_assert(tskid == TASK3);
-
-		task3_flag1 = true;
-
-		return;
-
-		check_point(0);
-
-	case 2:
-		check_point(8);
 		check_assert(tskid == TASK2);
 
+		check_assert(exinf == 2);
+
 		task2_flag2 = true;
-
-		return;
-
-		check_point(0);
-
-	case 3:
-		check_point(18);
-		task3_flag3 = true;
-
-		ercd = sta_ovr(TSK_SELF, 20000U);
-		check_ercd(ercd, E_ID);
-
-		ercd = sta_ovr(TASK3, 10000U);
-		check_ercd(ercd, E_OK);
-
-		return;
-
-		check_point(0);
-
-	case 4:
-		check_point(20);
-		task3_flag4 = true;
-
-		ercd = rot_rdq(HIGH_PRIORITY);
-		check_ercd(ercd, E_OK);
-
-		return;
-
-		check_point(0);
-
-	case 5:
-		check_point(22);
-		task2_flag4 = true;
 
 		return;
 
@@ -299,8 +293,8 @@ overrun_handler(ID tskid, intptr_t exinf)
 void
 task1(intptr_t exinf)
 {
-	T_ROVR	rovr;
 	ER_UINT	ercd;
+	T_ROVR	rovr;
 
 	test_start(__FILE__);
 
@@ -310,7 +304,7 @@ task1(intptr_t exinf)
 
 	check_assert(rovr.ovrstat == TOVR_STP);
 
-	ercd = sta_ovr(TASK2, 20000U);
+	ercd = sta_ovr(TASK2, 2 * UNIT_TIME);
 	check_ercd(ercd, E_OK);
 
 	ercd = ref_ovr(TASK2, &rovr);
@@ -318,134 +312,170 @@ task1(intptr_t exinf)
 
 	check_assert(rovr.ovrstat == TOVR_STA);
 
-	check_assert(rovr.leftotm == 20000U);
-
-	ercd = sta_ovr(TASK3, 20000U);
-	check_ercd(ercd, E_OK);
-
-	ercd = sta_alm(ALM1, 10000U);
-	check_ercd(ercd, E_OK);
-
-	hrtcnt1 = fch_hrt();
+	check_assert(rovr.leftotm == 2 * UNIT_TIME);
 
 	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	check_point(10);
-	hrtcnt2 = fch_hrt();
-
-	check_assert(40000U <= hrtcnt2 - hrtcnt1 && hrtcnt2 - hrtcnt1 <= 50000U);
-
+	check_point(7);
 	ercd = ref_ovr(TASK2, &rovr);
 	check_ercd(ercd, E_OK);
 
 	check_assert(rovr.ovrstat == TOVR_STP);
 
-	ercd = sta_ovr(TASK2, 20000U);
+	ercd = stp_ovr(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = sta_alm(ALM1, 10000U);
+	check_assert(rovr.ovrstat == TOVR_STP);
+
+	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	hrtcnt1 = fch_hrt();
-
-	ercd = wup_tsk(TASK2);
-	check_ercd(ercd, E_OK);
-
-	check_point(25);
-	hrtcnt2 = fch_hrt();
-
-	check_assert(70000U <= hrtcnt2 - hrtcnt1 && hrtcnt2 - hrtcnt1 <= 80000U);
-
-	check_finish(26);
 	check_point(0);
 }
+
+static uint_t	task2_count = 0;
 
 void
 task2(intptr_t exinf)
 {
 	ER_UINT	ercd;
-
-	check_point(2);
-	ercd = act_tsk(TASK3);
-	check_ercd(ercd, E_OK);
-
-	while(!task2_flag1);
-
-	check_point(7);
-	while(!task2_flag2);
-
-	check_point(9);
-	ercd = slp_tsk();
-	check_ercd(ercd, E_OK);
-
-	check_point(11);
-	ercd = wup_tsk(TASK3);
-	check_ercd(ercd, E_OK);
-
-	while(!task2_flag3);
-
-	check_point(13);
-	ercd = rot_rdq(HIGH_PRIORITY);
-	check_ercd(ercd, E_OK);
-
-	check_point(21);
-	while(!task2_flag4);
-
-	check_point(23);
-	ercd = slp_tsk();
-	check_ercd(ercd, E_OK);
-
-	check_point(0);
-}
-
-void
-task3(intptr_t exinf)
-{
 	T_ROVR	rovr;
-	ER_UINT	ercd;
 
-	check_point(4);
-	ercd = ref_ovr(TASK2, &rovr);
-	check_ercd(ercd, E_OK);
+	switch (++task2_count) {
+	case 1:
+		check_point(2);
+		ercd = sta_alm(ALM1, UNIT_TIME);
+		check_ercd(ercd, E_OK);
 
-	check_assert(rovr.ovrstat == TOVR_STA);
+		while(!task2_flag1);
 
-	check_assert(5000U <= rovr.leftotm && rovr.leftotm <= 15000U);
+		check_point(4);
+		ercd = ref_ovr(TSK_SELF, &rovr);
+		check_ercd(ercd, E_OK);
 
-	while(!task3_flag1);
+		check_assert(rovr.ovrstat == TOVR_STA);
 
-	check_point(6);
-	task2_flag1 = true;
+		check_assert(0 < rovr.leftotm && rovr.leftotm < UNIT_TIME);
 
-	ercd = slp_tsk();
-	check_ercd(ercd, E_OK);
+		while(!task2_flag2);
 
-	check_point(14);
-	ercd = sta_alm(ALM1, 10000U);
-	check_ercd(ercd, E_OK);
+		check_point(6);
+		ercd = ref_ovr(TSK_SELF, &rovr);
+		check_ercd(ercd, E_OK);
 
-	ercd = sta_ovr(TSK_SELF, 20000U);
-	check_ercd(ercd, E_OK);
+		check_assert(rovr.ovrstat == TOVR_STP);
 
-	ercd = sta_ovr(TASK2, 20000U);
-	check_ercd(ercd, E_OK);
+		ercd = ext_tsk();
+		check_ercd(ercd, E_OK);
 
-	check_point(15);
-	while(!task3_flag2);
+		check_point(0);
 
-	check_point(17);
-	ercd = sta_ovr(TSK_SELF, 20000U);
-	check_ercd(ercd, E_OK);
+	case 2:
+		check_point(8);
+		ercd = sta_ovr(TSK_SELF, UNIT_TIME);
+		check_ercd(ercd, E_OK);
 
-	while(!task3_flag3);
+		ercd = ref_ovr(TSK_SELF, &rovr);
+		check_ercd(ercd, E_OK);
 
-	check_point(19);
-	while(!task3_flag4);
+		check_assert(rovr.ovrstat == TOVR_STA);
 
-	check_point(24);
-	ercd = slp_tsk();
-	check_ercd(ercd, E_OK);
+		ercd = stp_ovr(TSK_SELF);
+		check_ercd(ercd, E_OK);
 
+		ercd = ref_ovr(TSK_SELF, &rovr);
+		check_ercd(ercd, E_OK);
+
+		check_assert(rovr.ovrstat == TOVR_STP);
+
+		ercd = sta_alm(ALM1, UNIT_TIME);
+		check_ercd(ercd, E_OK);
+
+		while(!task2_flag3);
+
+		check_point(10);
+		ercd = ref_ovr(TSK_SELF, &rovr);
+		check_ercd(ercd, E_OK);
+
+		check_assert(rovr.ovrstat == TOVR_STA);
+
+		check_assert(0 < rovr.leftotm && rovr.leftotm < UNIT_TIME);
+
+		ercd = sta_ovr(TSK_SELF, 2 * UNIT_TIME);
+		check_ercd(ercd, E_OK);
+
+		ercd = ref_ovr(TSK_SELF, &rovr);
+		check_ercd(ercd, E_OK);
+
+		check_assert(rovr.ovrstat == TOVR_STA);
+
+		check_assert(UNIT_TIME < rovr.leftotm && rovr.leftotm < 2 * UNIT_TIME);
+
+		ercd = sta_alm(ALM1, UNIT_TIME);
+		check_ercd(ercd, E_OK);
+
+		while(!task2_flag4);
+
+		check_point(12);
+		ercd = ref_ovr(TSK_SELF, &rovr);
+		check_ercd(ercd, E_OK);
+
+		check_assert(rovr.ovrstat == TOVR_STP);
+
+		check_point(13);
+		ercd = loc_cpu();
+		check_ercd(ercd, E_OK);
+
+		ercd = sta_ovr(TSK_SELF, UNIT_TIME);
+		check_ercd(ercd, E_CTX);
+
+		ercd = stp_ovr(TSK_SELF);
+		check_ercd(ercd, E_CTX);
+
+		ercd = ref_ovr(TSK_SELF, &rovr);
+		check_ercd(ercd, E_CTX);
+
+		ercd = unl_cpu();
+		check_ercd(ercd, E_OK);
+
+		ercd = sta_ovr(TSKID_TOO_SMALL_TASK, UNIT_TIME);
+		check_ercd(ercd, E_ID);
+
+		ercd = sta_ovr(TSKID_TOO_LARGE, UNIT_TIME);
+		check_ercd(ercd, E_ID);
+
+		ercd = stp_ovr(TSKID_TOO_SMALL_TASK);
+		check_ercd(ercd, E_ID);
+
+		ercd = stp_ovr(TSKID_TOO_LARGE);
+		check_ercd(ercd, E_ID);
+
+		ercd = ref_ovr(TSKID_TOO_SMALL_TASK, &rovr);
+		check_ercd(ercd, E_ID);
+
+		ercd = ref_ovr(TSKID_TOO_LARGE, &rovr);
+		check_ercd(ercd, E_ID);
+
+		ercd = sta_ovr(TSK_SELF, 0U);
+		check_ercd(ercd, E_PAR);
+
+		ercd = sta_ovr(TSK_SELF, TMAX_OVRTIM + 1);
+		check_ercd(ercd, E_PAR);
+
+		ercd = sta_ovr(TSK_SELF, TMAX_OVRTIM);
+		check_ercd(ercd, E_OK);
+
+		ercd = sta_alm(ALM1, UNIT_TIME);
+		check_ercd(ercd, E_OK);
+
+		while(!task2_flag5);
+
+		check_finish(15);
+		check_point(0);
+
+	default:
+		check_point(0);
+	}
 	check_point(0);
 }

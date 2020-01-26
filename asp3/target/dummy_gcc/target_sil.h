@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2013-2014 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2013-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_sil.h 374 2015-07-30 22:01:54Z ertl-hiro $
+ *  $Id: target_sil.h 1075 2018-11-25 13:51:40Z ertl-hiro $
  */
 
 /*
@@ -74,5 +74,10 @@ sil_dly_nse(ulong_t dlytim)
  *  プロセッサのエンディアン
  */
 #define SIL_ENDIAN_LITTLE			/* リトルエンディアン */
+
+/*
+ *  メモリ同期バリア
+ */
+#define TOPPERS_SIL_WRITE_SYNC()
 
 #endif /* TOPPERS_TARGET_SIL_H */

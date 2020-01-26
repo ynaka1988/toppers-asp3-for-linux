@@ -1,10 +1,10 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env ruby -Eutf-8 -w
 # -*- coding: utf-8 -*-
 #
 #  TOPPERS Configurator by Ruby
 #
 #  Copyright (C) 2015 by FUJI SOFT INCORPORATED, JAPAN
-#  Copyright (C) 2015,2016 by Embedded and Real-Time Systems Laboratory
+#  Copyright (C) 2015-2019 by Embedded and Real-Time Systems Laboratory
 #              Graduate School of Information Science, Nagoya Univ., JAPAN
 #
 #  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -36,7 +36,7 @@
 #  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #  の責任を負わない．
 #
-#  $Id: cfg.rb 38 2016-02-06 02:45:11Z ertl-hiro $
+#  $Id: cfg.rb 180 2019-10-02 23:32:02Z ertl-hiro $
 #
 
 if $0 == __FILE__
@@ -48,26 +48,27 @@ require "pp"
 require "csv"
 require "optparse"
 require "pstore"
-require "common/GenFile.rb"
-require "common/StrVal.rb"
-require "common/SRecord.rb"
+require "GenFile.rb"
+require "SRecord.rb"
 
 #
 #  定数定義
 #
 # 共通
-VERSION = "1.0.0"
+VERSION = "1.5.0"
 
 # cfg1_out関係
-CFG1_PREFIX        = "TOPPERS_cfg_"
-CFG1_MAGIC_NUM     = "TOPPERS_magic_number"
-CFG1_SIZEOF_SIGNED = "TOPPERS_sizeof_signed_t"
-CFG1_OUT_C         = "cfg1_out.c"
-CFG1_OUT_DB        = "cfg1_out.db"
-CFG1_OUT_SREC      = "cfg1_out.srec"
-CFG1_OUT_SYMS      = "cfg1_out.syms"
-CFG1_OUT_TIMESTAMP = "cfg1_out.timestamp"
-CFG1_OUT_TARGET_H  = "target_cfg1_out.h"
+CFG1_PREFIX         = "TOPPERS_cfg_"
+CFG1_MAGIC_NUM      = "TOPPERS_magic_number"
+CFG1_SIZEOF_SIGNED  = "TOPPERS_sizeof_signed_t"
+CFG1_SIZEOF_INTPTR  = "TOPPERS_sizeof_intptr_t"
+CFG1_SIZEOF_CHARPTR = "TOPPERS_sizeof_char_ptr_t"
+CFG1_OUT_C          = "cfg1_out.c"
+CFG1_OUT_DB         = "cfg1_out.db"
+CFG1_OUT_SREC       = "cfg1_out.srec"
+CFG1_OUT_SYMS       = "cfg1_out.syms"
+CFG1_OUT_TIMESTAMP  = "cfg1_out.timestamp"
+CFG1_OUT_TARGET_H   = "target_cfg1_out.h"
 
 # cfg2_out関係
 CFG2_OUT_DB        = "cfg2_out.db"
@@ -105,15 +106,51 @@ end
 # システムコンフィギュレーションファイルの構文解析時のエラー
 $noParseError = 0
 def parse_error(cfgFile, message)
-  error(message, "#{cfgFile.getFileName()}:#{cfgFile.getLineNo}:")
+  error(message, "#{cfgFile.getFileName}:#{cfgFile.getLineNo}:")
   if ($noParseError += 1) >= 10
     abort("too many errors emitted, stopping now")
   end
 end
 
+# システムコンフィギュレーションファイルの構文解析時の警告
+def parse_warning(cfgFile, message)
+  warning(message, "#{cfgFile.getFileName}:#{cfgFile.getLineNo}:")
+end
+
+#
+#  静的API処理時のエラー／警告表示関数
+#
+# 静的API処理時のエラー／警告を短く記述できるように，メッセージ中の%ま
+# たは%%で始まる記述を以下のように展開する．
+#	%label → #{params[:label]}
+#	%%label → label `#{params[:label]}'
+#
+# エラー／警告メッセージの展開
+def expand_message(message, params)
+  result = message.dup
+  while /%%(\w+)\b/ =~ result
+    param = $1
+    paramVal = params[param.to_sym].to_s
+    result.sub!(/%%#{param}\b/, "#{param} `#{paramVal}'")
+  end
+  while /%(\w+)\b/ =~ result
+    param = $1
+    paramVal = params[param.to_sym].to_s
+    result.sub!(/%#{param}\b/, paramVal)
+  end
+  return(result)
+end
+
 # 静的API処理時のエラー
 def error_api(params, message)
-  error(message, "#{params[:_file_]}:#{params[:_line_]}:")
+  error(expand_message(message, params), \
+			"#{params[:_file_]}:#{params[:_line_]}:")
+end
+
+# 静的API処理時の警告
+def warning_api(params, message)
+  warning(expand_message(message, params), \
+			"#{params[:_file_]}:#{params[:_line_]}:")
 end
 
 # 静的API処理時のエラー（エラーコード付き）
@@ -121,42 +158,34 @@ def error_ercd(errorCode, params, message)
   error_api(params, "#{errorCode}: #{message}")
 end
 
-# 静的API処理時の警告
-def warning_api(params, message)
-  warning(message, "#{params[:_file_]}:#{params[:_line_]}:")
-end
-
 # パラメータのエラー
 def error_wrong(errorCode, params, symbol, wrong)
-  error_ercd(errorCode, params, "#{symbol.to_s} `#{params[symbol]}'" \
-									" is #{wrong} in #{params[:apiname]}")
+  error_ercd(errorCode, params, "%%#{symbol} is #{wrong} in %apiname")
 end
 
 def error_wrong_id(errorCode, params, symbol, objid, wrong)
-  error_ercd(errorCode, params, "#{symbol.to_s} `#{params[symbol]}'" \
-				" is #{wrong} in #{params[:apiname]} of #{params[objid]}")
+  error_ercd(errorCode, params, "%%#{symbol} is #{wrong} " \
+	             					"in %apiname of %#{objid}")
 end
 
 def error_wrong_sym(errorCode, params, symbol, symbol2, wrong)
-  error_ercd(errorCode, params, "#{symbol.to_s} `#{params[symbol]}'" \
-								" is #{wrong} in #{params[:apiname]}" \
-								" of #{symbol2.to_s} `#{params[symbol2]}'")
+  error_ercd(errorCode, params, "%%#{symbol} is #{wrong} " \
+									"in %apiname of %%#{symbol2}")
 end
 
 # パラメータ不正のエラー
 def error_illegal(errorCode, params, symbol)
-  error_ercd(errorCode, params, "illegal #{symbol.to_s} `#{params[symbol]}'" \
-													" in #{params[:apiname]}")
+  error_ercd(errorCode, params, "illegal %%#{symbol} in %apiname")
 end
 
 def error_illegal_id(errorCode, params, symbol, objid)
-  error_ercd(errorCode, params, "illegal #{symbol.to_s} `#{params[symbol]}'" \
-								" in #{params[:apiname]} of #{params[objid]}")
+  error_ercd(errorCode, params, "illegal %%#{symbol} " \
+	             					"in %apiname of %#{objid}")
 end
 
 def error_illegal_sym(errorCode, params, symbol, symbol2)
-  error_ercd(errorCode, params, "illegal #{symbol.to_s} `#{params[symbol]}'" \
-			" in #{params[:apiname]} of #{symbol2.to_s} `#{params[symbol2]}'")
+  error_ercd(errorCode, params, "illegal %%#{symbol} " \
+									"in %apiname of %%#{symbol2}")
 end
 
 #
@@ -250,6 +279,80 @@ class String
 end
 
 #
+#  NumStrクラス（数値に文字列を付加したもの）の定義
+#
+class NumStr
+  def initialize(val, str = val.to_s)
+    @val = val
+    @str = str
+  end
+
+  # 数値情報を返す
+  def val
+    return @val
+  end
+  alias_method :to_i, :val
+
+  # 文字列情報を返す
+  def str
+    return @str
+  end
+  alias_method :to_s, :str
+
+  # 比較は数値情報で行う
+  def ==(other)
+    @val == other
+  end
+  def !=(other)
+    @val != other
+  end
+  def <=>(other)
+    @val <=> other
+  end
+
+  # ハッシュのキーとして使う時の比較も数値情報で行う
+  def eql?(other)
+    @val == other
+  end
+
+  # ハッシュ値の定義も上書きする
+  def hash
+    return @val.hash
+  end
+
+  # 数値クラスと演算できるようにする
+  def coerce(other)
+    if other.kind_of?(Numeric)
+      return other, @val
+    else
+      raise
+    end
+  end
+
+  # 二重引用符で囲まれた文字列の作成
+  def quote
+    str.quote
+  end
+
+  # 二重引用符で囲まれた文字列の展開
+  def unquote
+    str.unquote
+  end
+
+  # pp時の表示
+  def pretty_print(q)
+    q.text("[#{@val}(=0x#{@val.to_s(16)}),")
+    @str.pretty_print(q)
+    q.text("]")
+  end
+
+  # 未定義のメソッドは@valに送る
+  def method_missing(*method)
+    @val.send(*method)
+  end
+end
+
+#
 #  シンボルファイルの読み込み
 #
 #  以下のメソッドは，GNUのnmが生成するシンボルファイルに対応している．
@@ -268,7 +371,7 @@ def ReadSymbolFile(symbolFileName)
     fields = line.split(/\s+/)
 
     # 3列になっていない行は除外
-    if (fields.size == 3)
+    if fields.size == 3
       symbolAddress[fields[2]] = fields[0].hex
     end
   end
@@ -282,10 +385,13 @@ end
 def DefineSymbolValue
   $symbolValueTable.each do |symbolName, symbolData|
     if symbolData.has_key?(:VALUE)
-        eval("$#{symbolName} = " \
-				"StrVal.new(\"#{symbolName}\", #{symbolData[:VALUE]})")
+      eval("$#{symbolName} = #{symbolData[:VALUE]}")
+      if symbolData.has_key?(:NUMSTRVAR)
+        eval("$#{symbolData[:NUMSTRVAR]} = " \
+					"NumStr.new(symbolData[:VALUE], symbolData[:EXPR])")
+      end
     end
- end
+  end
 end
 
 #
@@ -325,6 +431,17 @@ def IncludeTrb(fileName)
 end
 
 #
+#  インクルードディレクティブ（#include）の生成
+#
+def GenerateIncludes(genFile)
+  $cfgFileInfo.each do |cfgInfo|
+    if cfgInfo.has_key?(:DIRECTIVE)
+      genFile.add(cfgInfo[:DIRECTIVE])
+    end
+  end
+end
+
+#
 #  パス3の処理
 #
 def Pass3
@@ -333,14 +450,9 @@ def Pass3
   #
   db = PStore.new(CFG2_OUT_DB)
   db.transaction(true) do
-    $apiDefinition = db[:apiDefinition]
-    $symbolValueTable = db[:symbolValueTable]
-    $cfgFileInfo = db[:cfgFileInfo]
-    $includeFiles = db[:includeFiles]
-    $cfgData = db[:cfgData]
-    $asmLabel = db[:asmLabel]
-    $bLittleEndian = db[:bLittleEndian]
-    $cfg2Data = db[:cfg2Data]
+    db.roots.each do |var|
+      eval("$#{var} = db[:#{var}]")
+    end
   end
 
   #
@@ -358,18 +470,40 @@ def Pass3
   #
   #  パス4に引き渡す情報をファイルに生成
   #
-  if $omitOutputDb.nil?
+  if !$omitOutputDb
     db = PStore.new(CFG3_OUT_DB)
     db.transaction do
-      db[:apiDefinition] = $apiDefinition
-      db[:symbolValueTable] = $symbolValueTable
-      db[:cfgFileInfo] = $cfgFileInfo
-      db[:includeFiles] = $includeFiles
-      db[:cfgData] = $cfgData
-      db[:asmLabel] = $asmLabel
-      db[:bLittleEndian] = $bLittleEndian
-      db[:cfg3Data] = $cfg3Data
+      $globalVars.each do |var|
+        eval("db[:#{var}] = $#{var}")
+      end
     end
+  end
+end
+
+#
+#  パス4の処理
+#
+def Pass4
+  #
+  #  パス3から引き渡される情報をファイルから読み込む
+  #
+  db = PStore.new(CFG3_OUT_DB)
+  db.transaction(true) do
+    db.roots.each do |var|
+      eval("$#{var} = db[:#{var}]")
+    end
+  end
+
+  #
+  #  値取得シンボルをグローバル変数として定義する
+  #
+  DefineSymbolValue()
+
+  #
+  #  生成スクリプト（trbファイル）を実行する
+  #
+  $trbFileNames.each do |trbFileName|
+    IncludeTrb(trbFileName)
   end
 end
 
@@ -384,10 +518,18 @@ def SYMBOL(symbol)
   end
 end
 
-def BCOPY(startIData, startData, size)
+def BCOPY(fromAddress, toAddress, size)
   if !$romImage.nil?
-    copyData = $romImage.get_data(startIData, size)
-    $romImage.set_data(startData, copyData)
+    copyData = $romImage.get_data(fromAddress, size)
+    if !copyData.nil?
+      $romImage.set_data(toAddress, copyData)
+    end
+  end
+end
+
+def BZERO(address, size)
+  if !$romImage.nil?
+    $romImage.set_data(address, "00" * size)
   end
 end
 
@@ -410,15 +552,19 @@ $apiTableFileNames = []
 $symvalTableFileNames = []
 $romImageFileName = nil
 $romSymbolFileName = nil
-$dependencyFileName = nil
 $idInputFileName = nil
 $idOutputFileName = nil
+$dependencyFileName = nil
+$omitOutputDb = false
+$supportDomain = false
+$supportClass = false
 
 #
 #  オプションの処理
 #
-OptionParser.new(banner="Usage: cfg.rb [options] CONFIG-FILE", 40) do |opt|
+OptionParser.new("Usage: cfg.rb [options] CONFIG-FILE", 40) do |opt|
   opt.version = VERSION
+  opt.release = nil
   opt.on("-k KERNEL", "--kernel KERNEL", "kernel profile name") do |val|
     $kernel = val
   end
@@ -458,11 +604,19 @@ OptionParser.new(banner="Usage: cfg.rb [options] CONFIG-FILE", 40) do |opt|
   opt.on("-O", "--omit-output-db", "omit DB file output") do
     $omitOutputDb = true
   end
+  opt.on("--enable-domain", "enable DOMAIN support") do
+	$supportDomain = true
+  end
+  opt.on("--enable-class", "enable CLASS support") do
+	$supportClass = true
+  end
   opt.on("-v", "--version", "show version number") do
-    abort(opt.ver)
+    puts(opt.ver)
+    exit(0)
   end
   opt.on("-h", "--help", "show help (this)") do
-    abort(opt.help)
+    puts(opt.help)
+    exit(0)
   end
   opt.parse!(ARGV)
 end
@@ -486,6 +640,38 @@ end
 # パス1以外では，生成スクリプト（trbファイル）が必須
 if ($pass != "1" && $trbFileNames.empty?)
   abort("`--trb-file' must be specified except in pass 1")
+end
+
+#
+#  カーネルオプションの処理
+#
+case $kernel
+when /^hrp/
+	$supportDomain = true
+when /^fmp/
+	$supportClass = true
+when /^hrmp/
+	$supportDomain = true
+	$supportClass = true
+end
+
+#
+#  ID番号入力ファイルの取り込み
+#
+$inputObjid = {}
+if !$idInputFileName.nil?
+  begin
+    idInputFile = File.open($idInputFileName)
+  rescue Errno::ENOENT, Errno::EACCES => ex
+    abort(ex.message)
+  end
+
+  idInputFile.each do |line|
+    ( objName, objidNumber ) = line.split(/\s+/)
+    $inputObjid[objName] = objidNumber.to_i
+  end
+
+  idInputFile.close
 end
 
 #
@@ -522,6 +708,8 @@ when "2"
   Pass2()
 when "3"
   Pass3()
+when "4"
+  Pass4()
 else
   error_exit("invalid pass: #{$pass}")
 end

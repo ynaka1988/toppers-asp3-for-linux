@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_dtq1.c 602 2016-02-07 12:22:32Z ertl-hiro $
+ *  $Id: test_dtq1.c 1137 2019-01-04 01:42:50Z ertl-hiro $
  */
 
 /* 
@@ -71,8 +71,6 @@
  *			(A-6-1) 呼び出し時点で終了要求フラグがセット
  *			(A-6-2) 待ち状態になった後に終了要求
  *		(A-7) 待ちオブジェクトの削除または再初期化［NGKI1733］
- *	  ※ASPカーネルに適用されない要求：
- *			［NGKI1726］［NGKI1729］［NGKI1730］
  *	(B) snd_dtqの正常系処理
  *		(B-1) 受信待ち行列中のタスクを待ち解除［NGKI1734］
  *		(B-2) 待ち解除されたタスクにE_OKが返る［NGKI1735］
@@ -108,8 +106,6 @@
  *			(F-6-1) 呼び出し時点で終了要求フラグがセット
  *			(F-6-2) 待ち状態になった後に終了要求
  *		(F-7) 待ちオブジェクトの削除または再初期化［NGKI1765］
- *	  ※ASPカーネルに適用されない要求：
- *			［NGKI1757］［NGKI1760］［NGKI1761］［NGKI1762］
  *	(G) rcv_dtqの正常系処理
  *		(G-1) 受信したデータはp_dataが指すメモリ領域に［NGKI3421］
  *		(G-2) 管理領域の先頭のデータを受信［NGKI1766］
@@ -222,7 +218,7 @@
  *	18:	slp_tsk()
  *	== TASK3（続き）==
  *	19:	assert(data == DATA1)
- *	20:	sta_alm(ALM1, 10000U)
+ *	20:	sta_alm(ALM1, TEST_TIME_CP) ... ALM1が実行開始するまで
  *	21:	rcv_dtq(DTQ2, &data)
  *	== ALM1 ==
  *	22:	snd_dtq(DTQ2, DATA0) -> E_CTX					... (A-1)
@@ -546,7 +542,7 @@ task3(intptr_t exinf)
 	check_assert(data == DATA1);
 
 	check_point(20);
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	check_point(21);

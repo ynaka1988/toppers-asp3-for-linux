@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: mutex.c 554 2016-01-17 13:21:59Z ertl-hiro $
+ *  $Id: mutex.c 1012 2018-10-18 13:31:53Z ertl-hiro $
  */
 
 /*
@@ -363,15 +363,21 @@ acre_mtx(const T_CMTX *pk_cmtx)
 {
 	MTXCB	*p_mtxcb;
 	MTXINIB	*p_mtxinib;
+	ATR		mtxatr;
+	PRI		ceilpri;
 	ER		ercd;
 
 	LOG_ACRE_MTX_ENTER(pk_cmtx);
 	CHECK_TSKCTX_UNL();							/*［NGKI2023］［NGKI2024］*/
-	if (pk_cmtx->mtxatr == TA_CEILING) {
-		CHECK_PAR(VALID_TPRI(pk_cmtx->ceilpri));	/*［NGKI2037］*/
+
+	mtxatr = pk_cmtx->mtxatr;
+	ceilpri = pk_cmtx->ceilpri;
+
+	if (mtxatr == TA_CEILING) {
+		CHECK_PAR(VALID_TPRI(ceilpri));			/*［NGKI2037］*/
 	}
 	else {
-		CHECK_RSATR(pk_cmtx->mtxatr, TA_TPRI);	/*［NGKI2025］*/
+		CHECK_VALIDATR(mtxatr, TA_TPRI);		/*［NGKI2025］*/
 	}
 
 	lock_cpu();
@@ -381,8 +387,8 @@ acre_mtx(const T_CMTX *pk_cmtx)
 	else {
 		p_mtxcb = ((MTXCB *) queue_delete_next(&free_mtxcb));
 		p_mtxinib = (MTXINIB *)(p_mtxcb->p_mtxinib);
-		p_mtxinib->mtxatr = pk_cmtx->mtxatr;
-		p_mtxinib->ceilpri = INT_PRIORITY(pk_cmtx->ceilpri);
+		p_mtxinib->mtxatr = mtxatr;
+		p_mtxinib->ceilpri = INT_PRIORITY(ceilpri);
 
 		queue_initialize(&(p_mtxcb->wait_queue));
 		p_mtxcb->p_loctsk = NULL;				/*［NGKI2033］*/
@@ -466,9 +472,9 @@ del_mtx(ID mtxid)
 ER
 loc_mtx(ID mtxid)
 {
-	MTXCB	*p_mtxcb;
-	WINFO_MTX winfo_mtx;
-	ER		ercd;
+	MTXCB		*p_mtxcb;
+	WINFO_MTX	winfo_mtx;
+	ER			ercd;
 
 	LOG_LOC_MTX_ENTER(mtxid);
 	CHECK_DISPATCH();
@@ -499,8 +505,8 @@ loc_mtx(ID mtxid)
 		ercd = E_OBJ;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_MTX;
-		wobj_make_wait((WOBJCB *) p_mtxcb, (WINFO_WOBJ *) &winfo_mtx);
+		wobj_make_wait((WOBJCB *) p_mtxcb, TS_WAITING_MTX,
+											(WINFO_WOBJ *) &winfo_mtx);
 		dispatch();
 		ercd = winfo_mtx.winfo.wercd;
 	}
@@ -569,10 +575,10 @@ ploc_mtx(ID mtxid)
 ER
 tloc_mtx(ID mtxid, TMO tmout)
 {
-	MTXCB	*p_mtxcb;
-	WINFO_MTX winfo_mtx;
-	TMEVTB	tmevtb;
-	ER		ercd;
+	MTXCB		*p_mtxcb;
+	WINFO_MTX	winfo_mtx;
+	TMEVTB		tmevtb;
+	ER			ercd;
 
 	LOG_TLOC_MTX_ENTER(mtxid, tmout);
 	CHECK_DISPATCH();
@@ -607,9 +613,8 @@ tloc_mtx(ID mtxid, TMO tmout)
 		ercd = E_TMOUT;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_MTX;
-		wobj_make_wait_tmout((WOBJCB *) p_mtxcb, (WINFO_WOBJ *) &winfo_mtx,
-														&tmevtb, tmout);
+		wobj_make_wait_tmout((WOBJCB *) p_mtxcb, TS_WAITING_MTX,
+								(WINFO_WOBJ *) &winfo_mtx, &tmevtb, tmout);
 		dispatch();
 		ercd = winfo_mtx.winfo.wercd;
 	}

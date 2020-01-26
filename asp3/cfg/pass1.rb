@@ -3,7 +3,7 @@
 #  TOPPERS Configurator by Ruby
 #
 #  Copyright (C) 2015 by FUJI SOFT INCORPORATED, JAPAN
-#  Copyright (C) 2015,2016 by Embedded and Real-Time Systems Laboratory
+#  Copyright (C) 2015-2018 by Embedded and Real-Time Systems Laboratory
 #              Graduate School of Information Science, Nagoya Univ., JAPAN
 #
 #  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
 #  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #  の責任を負わない．
 #
-#  $Id: pass1.rb 40 2016-02-06 17:15:00Z ertl-hiro $
+#  $Id: pass1.rb 179 2019-10-02 04:36:46Z ertl-hiro $
 #
 
 #
@@ -46,34 +46,43 @@
 #  値取得シンボルテーブルへの固定登録
 #
 $symbolValueTable = {
-  "CHAR_BIT" => { :EXPR => "CHAR_BIT" },
-  "SCHAR_MAX" => { :EXPR => "SCHAR_MAX", :SIGNED => true },
-  "SCHAR_MIN" => { :EXPR => "SCHAR_MIN", :SIGNED => true },
-  "UCHAR_MAX" => { :EXPR => "UCHAR_MAX" },
-  "CHAR_MAX" => { :EXPR => "CHAR_MAX", :SIGNED => true },
-  "CHAR_MIN" => { :EXPR => "CHAR_MIN", :SIGNED => true },
-  "SHRT_MAX" => { :EXPR => "SHRT_MAX", :SIGNED => true },
-  "SHRT_MIN" => { :EXPR => "SHRT_MIN", :SIGNED => true },
-  "USHRT_MAX" => { :EXPR => "USHRT_MAX" },
-  "INT_MAX" => { :EXPR => "INT_MAX", :SIGNED => true },
-  "INT_MIN" => { :EXPR => "INT_MIN", :SIGNED => true },
-  "UINT_MAX" => { :EXPR => "UINT_MAX" },
-  "LONG_MAX" => { :EXPR => "LONG_MAX", :SIGNED => true },
-  "LONG_MIN" => { :EXPR => "LONG_MIN", :SIGNED => true },
-  "ULONG_MAX" => { :EXPR => "ULONG_MAX" }
+  "CHAR_BIT"  => { EXPR: "CHAR_BIT" },
+  "SCHAR_MAX" => { EXPR: "SCHAR_MAX", SIGNED: true },
+  "SCHAR_MIN" => { EXPR: "SCHAR_MIN", SIGNED: true },
+  "UCHAR_MAX" => { EXPR: "UCHAR_MAX" },
+  "CHAR_MAX"  => { EXPR: "CHAR_MAX",  SIGNED: true },
+  "CHAR_MIN"  => { EXPR: "CHAR_MIN",  SIGNED: true },
+  "SHRT_MAX"  => { EXPR: "SHRT_MAX",  SIGNED: true },
+  "SHRT_MIN"  => { EXPR: "SHRT_MIN",  SIGNED: true },
+  "USHRT_MAX" => { EXPR: "USHRT_MAX" },
+  "INT_MAX"   => { EXPR: "INT_MAX",   SIGNED: true },
+  "INT_MIN"   => { EXPR: "INT_MIN",   SIGNED: true },
+  "UINT_MAX"  => { EXPR: "UINT_MAX" },
+  "LONG_MAX"  => { EXPR: "LONG_MAX",  SIGNED: true },
+  "LONG_MIN"  => { EXPR: "LONG_MIN",  SIGNED: true },
+  "ULONG_MAX" => { EXPR: "ULONG_MAX" },
+  "SIL_ENDIAN_BIG" \
+	=> { EXPR: "true", BOOL: true, CONDITION: "defined(SIL_ENDIAN_BIG)" },
+  "SIL_ENDIAN_LITTLE" \
+	=> { EXPR: "true", BOOL: true, CONDITION: "defined(SIL_ENDIAN_LITTLE)" }
 }
 
 #
 #  静的APIテーブルへの固定登録
 #
 $apiDefinition = { "INCLUDE" =>
-  { :PARAM => [ { :NAME => :file, :STRING => true }]}}
+  { :PARAM => [ { :NAME => :file, :STRING_LITERAL => true }]}}
 
 #
 #  静的APIテーブルの読み込み
 #
 def ReadApiTableFile
   $apiTableFileNames.each do |apiTableFileName|
+    if /^(.+):(\w+)$/ =~ apiTableFileName
+      apiTableFileName = $1
+      apiPhase = $2.to_sym
+    end
+
     if !File.exist?(apiTableFileName)
       error_exit("`#{apiTableFileName}' not found")
       next
@@ -83,9 +92,19 @@ def ReadApiTableFile
     apiFile.each do |line|
       next if /^#/ =~ line			# コメントをスキップ
 
-      fields = line.split(/\s+/)
-      staticApi = fields.shift
-      apiDef = { :API => staticApi }
+      fields = line.split(/\s+/)	# フィールドに分解
+
+      apiName = fields.shift		# API名の取り出し
+      if /^(.+)\[(.+)\]$/ =~ apiName
+        apiName = $1
+        apiDef = { APINAME: apiName, API: $2 }
+      else
+        apiDef = { APINAME: apiName, API: apiName }
+      end
+      if !apiPhase.nil?
+        apiDef[:PHASE] = apiPhase
+      end
+
       apiParams = []
       fields.each do |param|
         case param
@@ -101,13 +120,18 @@ def ReadApiTableFile
           when "%"					# オブジェクト識別名（参照）
             apiParam[:ID_REF] = true
           when "."					# 符号無し整数定数式パラメータ
-            apiParam[:UNSIGNED] = true
+            apiParam[:EXPTYPE] = "unsigned_t"
           when "+"					# 符号付き整数定数式パラメータ
+            apiParam[:EXPTYPE] = "signed_t"
             apiParam[:SIGNED] = true
+          when "^"					# ポインタ整数定数式パラメータ
+            apiParam[:EXPTYPE] = "uintptr_t"
+            apiParam[:INTPTR] = true
           when "&"					# 一般整数定数式パラメータ
             # do nothing
           when "$"					# 文字列定数式パラメータ
             apiParam[:STRING] = true
+            apiParam[:EXPTYPE] = "char *"
           else
             error_exit("`#{param}' is invalid")
           end
@@ -121,8 +145,13 @@ def ReadApiTableFile
             apiParam[:LIST] = true
           end
         
-        when /^([{}])$/				# {と}
-          apiParam = { :BRACE => $1 }
+        when "{"					# {
+          apiParam = { :BRACE => "{" }
+        when "{?"					# {?
+          apiParam = { :BRACE => "{", :OPTBRACE => true }
+
+        when "}"					# }
+          apiParam = { :BRACE => "}" }
 
         else
           error_exit("`#{param}' is invalid")
@@ -130,7 +159,7 @@ def ReadApiTableFile
         apiParams.push(apiParam)
       end
       apiDef[:PARAM] = apiParams
-      $apiDefinition[staticApi] = apiDef
+      $apiDefinition[apiName] = apiDef
     end
     apiFile.close
   end
@@ -146,33 +175,52 @@ def ReadSymvalTable
       next
     end
 
-    symvalCsv = CSV.open(symvalTableFileName)
+    symvalCsv = CSV.open(symvalTableFileName,
+						{ skip_blanks: true, skip_lines: /^#/ })
     symvalCsv.each do |record|
+      symbol = {}
+
       # 変数名
       if record[0].nil?
-        error_exit("invalid variable name in `#{fileName}'")
+        error_exit("invalid variable name in " \
+						"`#{symvalTableFileName}:#{symvalCsv.to_io.lineno}'")
+      elsif /^(.+)\[(.+)\]$/ =~ record[0]
+        variable = $1
+        symbol[:NUMSTRVAR] = $2
+      else
+        variable = record[0]
       end
 
-      symbol = {}
-      variable = record[0]
-
       # 式
-      if record[1].nil? || record[1] == ""
+      if record[1].nil? || record[1].empty?
         symbol[:EXPR] = variable
       else
         symbol[:EXPR] = record[1]
       end
 
-      # 符号フラグ
-      if !(record[2].nil? || record[2] == "" || /^[uU]/ =~ record[2])
-        symbol[:SIGNED] = true
+      # 式の型
+      if !record[2].nil? && !record[2].empty?
+        case record[2]
+        when /^[bB]/				# 真偽値
+          symbol[:BOOL] = true
+        when /^[iI]/				# ポインタ整数値
+          symbol[:INTPTR] = true
+        when /^[uU]/				# 符号無し整数値
+          # 何も設定しない
+        else						# 符号付き整数値
+          symbol[:SIGNED] = true
+        end
       end
 
       # コンパイル条件
-      symbol[:CONDITION] = record[3]
+      if !record[3].nil? && !record[3].empty?
+        symbol[:CONDITION] = record[3]
+      end
 
-      # コンパイル条件が満たされない時のデフォルト値
-      symbol[:DEFAULT] = record[4]
+      # 条件が成立しない時の式
+      if !record[4].nil? && !record[4].empty?
+        symbol[:ELSE_EXPR] = record[4]
+      end
 
       $symbolValueTable[variable] = symbol
     end
@@ -202,6 +250,11 @@ class ConfigFile
   def getNextLine(withinApi)
     line = @cfgFile.gets
     return(nil) if line.nil?
+
+	line.encode!("UTF-16BE", "UTF-8",	# 不正なバイト列を除外する
+					:invalid => :replace,
+					:undef => :replace,
+					:replace => '?').encode!("UTF-8")
     @lineNo += 1
 
     line.chomp!
@@ -248,6 +301,9 @@ end
 #
 class CfgParser
   @@lastApiIndex = 0
+  @@currentDomain = nil
+  @@currentClass = nil
+  @@nestDC = []
 
   def initialize
     @line = ""
@@ -310,12 +366,22 @@ class CfgParser
   #  改行と空白文字を読み飛ばす
   #
   def skipSpace(cfgFile, withinApi)
-    begin
+    loop do
       return if @line.nil?						# ファイル末であればリターン
       @line.lstrip!								# 先頭の空白を削除
       return if @line != ""						# 空行でなければリターン
       @line = cfgFile.getNextLine(withinApi)	# 次の行を読む
-    end while true
+    end
+  end
+
+  #
+  #  次の文字まで読み飛ばす
+  #
+  def skipToToken(cfgFile, withinApi=true)
+    skipSpace(cfgFile, withinApi)
+    if @line.nil?							# ファイル末であればエラー終了
+      error_exit("#{cfgFile.getFileName}: unexpeced end-of-file")
+    end
   end
 
   #
@@ -326,17 +392,12 @@ class CfgParser
   # cfgFileから次の行を取り出す．ファイル末に達した時は，nilを返す．
   #
   def parseParam(cfgFile)
-    skipSpace(cfgFile, true)				# 改行と空白文字を読み飛ばす
-    if @line.nil?							# ファイル末であればリターン
-      error_exit("unexpexced end-of-file")
-      return(nil)
-    end
-
     param = ""								# 読んだ文字列
     parenLevel = 0							# 括弧のネストレベル
     skipComma = @skipComma
     @skipComma = false
 
+    skipToToken(cfgFile)					# 次の文字まで読み飛ばす
     begin
       if parenLevel == 0
         case @line
@@ -346,11 +407,11 @@ class CfgParser
             skipComma = false
             return(parseParam(cfgFile))		# 再帰呼び出し
           else
-            return(param)
+            return(param.strip)
           end
         when /^(\s*{)(.*)$/					# {
           if param != ""
-            return(param)
+            return(param.strip)
           else
             @line = $2
             return("{")
@@ -361,7 +422,7 @@ class CfgParser
           parenLevel += 1
         when /^(\s*([)}]))(.*)$/			# }か)
           if param != ""
-            return(param)
+            return(param.strip)
           else
             @line = $3
             @skipComma = true if $2 == "}"
@@ -377,7 +438,7 @@ class CfgParser
           param += $1
           @line = $2
         else								# 行末
-          param += "\n"
+          param += " "
           @line = cfgFile.getNextLine(true)
         end
       else
@@ -401,21 +462,30 @@ class CfgParser
           param += $1
           @line = $2
         else								# 行末
-          param += "\n"
+          param += " "
           @line = cfgFile.getNextLine(true)
         end
       end
     end while (@line)
-    return(param)
+    return(param.strip)
   end
 
   def getParam(apiParam, param, cfgFile)
-    if apiParam.has_key?(:ID_DEF) || apiParam.has_key?(:ID_REF)
-      if /^[A-Za-z_][A-Za-z0-9_]*$/ !~ param
-        parse_error(cfgFile, "`#{param}' is illegal object identifier")
+    if param == ""
+      if !apiParam.has_key?(:OPTIONAL)
+        parse_error(cfgFile, "unexpected `,'")
       end
+      return(param)
     end
-    if apiParam.has_key?(:STRING)
+
+    if apiParam.has_key?(:ID_DEF) || apiParam.has_key?(:ID_REF)
+      if (/^[A-Za-z_]\w*$/ !~ param)
+        parse_error(cfgFile, "`#{param}' is illegal object ID")
+      end
+      return(param)
+    end
+
+    if apiParam.has_key?(:STRING_LITERAL)
       return(param.unquote)
     else
       return(param)
@@ -426,14 +496,13 @@ class CfgParser
     # 静的APIの読み込み
     staticApi = {}
     tooFewParams = false
+    skipUntilBrace = 0
 
-    skipSpace(cfgFile, true)				# 改行と空白文字を読み飛ばす
-    if @line.nil?							# ファイル末であればリターン
-      error_exit("unexpexced end-of-file")
-    elsif (/^\((.*)$/ =~ @line)
+    skipToToken(cfgFile)					# 次の文字まで読み飛ばす
+    if (/^\((.*)$/ =~ @line)
       @line = $1
 
-      staticApi[:API] = apiName
+      staticApi[:APINAME] = apiName
       staticApi[:_FILE_] = cfgFile.getFileName
       staticApi[:_LINE_] = cfgFile.getLineNo
       apiDef = $apiDefinition[apiName]
@@ -442,9 +511,22 @@ class CfgParser
       apiDef[:PARAM].each do |apiParam|
         return(staticApi) if param.nil?		# ファイル末であればリターン
 
-        if apiParam.has_key?(:OPTIONAL)
+        if skipUntilBrace > 0
+          # API定義を}までスキップ中
+          if apiParam.has_key?(:BRACE)
+            case apiParam[:BRACE]
+            when "{"
+              skipUntilBrace += 1
+            when "}"
+              skipUntilBrace -= 1
+            end
+          end
+        elsif apiParam.has_key?(:OPTIONAL)
           if /^([{})])$/ !~ param
-            staticApi[apiParam[:NAME]] = getParam(apiParam, param, cfgFile)
+            store_param = getParam(apiParam, param, cfgFile)
+            if store_param != ""
+              staticApi[apiParam[:NAME]] = store_param
+            end
             param = parseParam(cfgFile)
           end
         elsif apiParam.has_key?(:LIST)
@@ -453,6 +535,19 @@ class CfgParser
             staticApi[apiParam[:NAME]].push(getParam(apiParam, param, cfgFile))
             param = parseParam(cfgFile)
             break if param.nil?				# ファイル末の場合
+          end
+        elsif apiParam.has_key?(:OPTBRACE)
+          if param == apiParam[:BRACE]
+            param = parseParam(cfgFile)
+            break if param.nil?				# ファイル末の場合
+          else
+            if param == ""
+              param = parseParam(cfgFile)
+              break if param.nil?			# ファイル末の場合
+            elsif /^([})])$/ !~ param
+              parse_error(cfgFile, "`{...}' expected before #{param}")
+            end
+            skipUntilBrace += 1          	# API定義を}までスキップ
           end
         elsif !apiParam.has_key?(:BRACE)
           if /^([{})])$/ !~ param
@@ -466,12 +561,12 @@ class CfgParser
           param = parseParam(cfgFile)
           tooFewParams = false
         else
-          parse_error(cfgFile, "`#{apiParam[:BRACE]}' expected")
+          parse_error(cfgFile, "`#{apiParam[:BRACE]}' expected before #{param}")
           # )かファイル末まで読み飛ばす
-          begin
+          loop do
             param = parseParam(cfgFile)
             break if (param.nil? || param == ")")
-          end while true
+          end
           break
         end
       end
@@ -491,11 +586,22 @@ class CfgParser
     return(staticApi)
   end
 
+  def parseOpenBrace(cfgFile)
+    # {の読み込み
+    skipToToken(cfgFile)					# 次の文字まで読み飛ばす
+    if (/^\{(.*)$/ =~ @line)
+      @line = $1
+    else
+      parse_error(cfgFile, "`{' expected before #{@line}")
+    end
+  end
+
   def parseFile(cfgFileName)
     cfgFiles = [ ConfigFile.new(cfgFileName) ]
     @line = ""
-    begin
+    loop do
       cfgFile = cfgFiles.last
+
       skipSpace(cfgFile, false)				# 改行と空白文字を読み飛ばす
       if @line.nil?
         # ファイル末の処理
@@ -511,48 +617,108 @@ class CfgParser
       elsif /^#/ =~ @line
         # プリプロセッサディレクティブを読む
         case @line
-        when /^#include\b(.*)$/
-          $includeFiles.push($1.strip)
-        when /^#(ifdef|ifndef|if|endif|else|elif)\b/
-          directive = { :DIRECTIVE => @line.strip }
+        when /^#(include|ifdef|ifndef|if|endif|else|elif)\b/
+          directive = {}
+          directive[:DIRECTIVE] = @line.strip
+          directive[:_FILE_] = cfgFile.getFileName
+          directive[:_LINE_] = cfgFile.getLineNo
           $cfgFileInfo.push(directive)
         else
           parse_error(cfgFile, "unknown preprocessor directive: #{@line}")
         end
         @line = ""
-      elsif (/^([A-Z_]+)\b(.*)$/ =~ @line)
+      elsif (/^([A-Z_][A-Z0-9_]*)\b(.*)$/ =~ @line)
         apiName = $1
         @line = $2
 
         case apiName
         when "KERNEL_DOMAIN"
-          parse_error(cfgFile, "`KERNEL_DOMAIN' is not supported")
-          abort()
+          if !$supportDomain
+            parse_warning(cfgFile, "`KERNEL_DOMAIN' is not supported")
+          end
+          if !@@currentDomain.nil?
+            parse_error(cfgFile, "`DOMAIN' must not be nested")
+          end
+          @@currentDomain = "TDOM_KERNEL"
+          parseOpenBrace(cfgFile)
+          @@nestDC.push("domain")
         when "DOMAIN"
-          parse_error(cfgFile, "`DOMAIN' is not supported")
-          abort()
+          if !$supportDomain
+            parse_warning(cfgFile, "`DOMAIN' is not supported")
+          end
+          if !@@currentDomain.nil?
+            parse_error(cfgFile, "`DOMAIN' must not be nested")
+          end
+          domid = parseParam(cfgFile).sub(/^\((.+)\)$/m, "\\1").strip
+          if (/^[A-Za-z_]\w*$/ !~ domid)
+            parse_error(cfgFile, "`#{domid}' is illegal domain ID")
+          else
+            if !$domainId.has_key?(domid)
+              if $inputObjid.has_key?(domid)
+                # ID番号入力ファイルに定義されていた場合
+                $domainId[domid] = $inputObjid[domid]
+                if $domainId[domid] > 32
+                  error_exit("domain ID for `#{domid}' is too large")
+                end
+              else
+                $domainId[domid] = nil
+              end
+            end
+            @@currentDomain = domid
+          end
+          parseOpenBrace(cfgFile)
+          @@nestDC.push("domain")
         when "CLASS"
-          parse_error(cfgFile, "`CLASS' is not supported")
-          abort()
+          if !$supportClass
+            parse_warning(cfgFile, "`CLASS' is not supported")
+          end
+          if !@@currentClass.nil?
+            parse_error(cfgFile, "`CLASS' must not be nested")
+          end
+          @@currentClass = parseParam(cfgFile).sub(/^\((.+)\)$/m, "\\1").strip
+          @@classFile = cfgFile.getFileName
+          @@classLine = cfgFile.getLineNo
+          parseOpenBrace(cfgFile)
+          @@nestDC.push("class")
         else
           if $apiDefinition.has_key?(apiName)
             # 静的APIを1つ読む
             staticApi = parseApi(cfgFile, apiName)
             if staticApi.empty?
               # ファイル末か文法エラー
-            elsif (staticApi[:API] == "INCLUDE")
+            elsif (staticApi[:APINAME] == "INCLUDE")
               # INCLUDEの処理
               includeFilePath = SearchFilePath(staticApi[:file])
               if includeFilePath.nil?
-                parse_error(cfgFile, "`#{staticApi["file"]}' not found")
+                error = {}
+                error[:DIRECTIVE] = "#error '#{staticApi[:file]}' not found."
+                error[:_FILE_] = cfgFile.getFileName
+                error[:_LINE_] = cfgFile.getLineNo
+                $cfgFileInfo.push(error)
               else
                 $dependencyFiles.push(includeFilePath)
                 cfgFiles.push(ConfigFile.new(includeFilePath))
               end
             else
               # 静的APIの処理
+              if !@@currentDomain.nil?
+                staticApi[:DOMAIN] = @@currentDomain
+              end
+              if !@@currentClass.nil?
+                staticApi[:CLASS] = @@currentClass
+                staticApi[:CLASS_FILE_] = @@classFile
+                staticApi[:CLASS_LINE_] = @@classLine
+              end
               staticApi[:INDEX] = (@@lastApiIndex += 1)
               $cfgFileInfo.push(staticApi)
+            end
+
+            # ";"を読む
+            skipToToken(cfgFile, false)		# 次の文字まで読み飛ばす
+            if (/^\;(.*)$/ =~ @line)
+              @line = $1
+            else
+              parse_error(cfgFile, "`;' expected after static API")
             end
           else
             parse_error(cfgFile, "unknown static API: #{apiName}")
@@ -560,34 +726,78 @@ class CfgParser
         end
       elsif (/^\}(.*)$/ =~ @line)
         # }の処理
-        error_exit("unexpexced `}'")
+        if @@nestDC.size > 0
+          case @@nestDC.pop
+          when "domain"
+            @@currentDomain = nil
+          when "class"
+            @@currentClass = nil
+          end
+        else
+          error_exit("unexpected `}'")
+        end
         @line = $1
       else
         parse_error(cfgFile, "syntax error: #{@line}")
         @line = ""
       end
-    end while true
+    end
   end
 end
 
 #
 #  cfg1_out.cの生成
 #
-def GenerateCfg1OutC
-  cfg1Out = GenFile.new(CFG1_OUT_C)
+module Cfg1OutC
+  #
+  #  静的APIのファイル名と行番号の出力
+  #
+  def self.OutLineNumber(cfgInfo)
+    @cfg1Out.add("#line #{cfgInfo[:_LINE_]} \"#{cfgInfo[:_FILE_]}\"")
+  end
 
-  cfg1Out.append(<<EOS)
+  #
+  #  クラス記述のファイル名と行番号の出力
+  #
+  def self.OutClassLineNumber(cfgInfo)
+    @cfg1Out.add("#line #{cfgInfo[:CLASS_LINE_]} \"#{cfgInfo[:CLASS_FILE_]}\"")
+  end
+
+  #
+  #  パラメータに関する定義の出力
+  #
+  def self.OutParamDef(param, index, apiParam, cfgInfo)
+    if apiParam.has_key?(:ID_DEF)
+      @cfg1Out.add("#define #{param}\t(<>)")
+    elsif apiParam.has_key?(:EXPTYPE)
+      OutLineNumber(cfgInfo)
+      @cfg1Out.add("const #{apiParam[:EXPTYPE]} #{CFG1_PREFIX}valueof_" \
+								"#{apiParam[:NAME]}_#{index} = " \
+								"(#{apiParam[:EXPTYPE]})(#{param});")
+    end
+  end
+
+  #
+  #  cfg1_out.cの生成（メインの処理）
+  #
+  def self.Generate
+    @cfg1Out = GenFile.new(CFG1_OUT_C)
+
+    @cfg1Out.append(<<EOS)
 /* #{CFG1_OUT_C} */
 #define TOPPERS_CFG1_OUT
 #include "kernel/kernel_int.h"
 EOS
 
-  # インクルードヘッダファイル
-  $includeFiles.each do |file|
-    cfg1Out.add("#include #{file}")
-  end
+    # インクルードディレクティブ（#include）の生成
+    $cfgFileInfo.each do |cfgInfo|
+      if cfgInfo.has_key?(:DIRECTIVE)
+        OutLineNumber(cfgInfo)
+        @cfg1Out.add(cfgInfo[:DIRECTIVE])
+      end
+    end
 
-  cfg1Out.append(<<EOS)
+    @cfg1Out.add(<<EOS)
 
 #ifdef INT64_MAX
   typedef int64_t signed_t;
@@ -598,54 +808,84 @@ EOS
 #endif
 
 #include "#{CFG1_OUT_TARGET_H}"
-#include <limits.h>
 
 const uint32_t #{CFG1_MAGIC_NUM} = 0x12345678;
 const uint32_t #{CFG1_SIZEOF_SIGNED} = sizeof(signed_t);
-
+const uint32_t #{CFG1_SIZEOF_INTPTR} = sizeof(intptr_t);
+const uint32_t #{CFG1_SIZEOF_CHARPTR} = sizeof(char *);
 EOS
 
-  # 値取得シンボルの処理
-  $symbolValueTable.each do |symbolName, symbolData|
-    type = symbolData.has_key?(:SIGNED) ? "signed_t" : "unsigned_t"
-    if !symbolData[:CONDITION].nil?
-      cfg1Out.add("#if #{symbolData[:CONDITION]}")
-    end
-    cfg1Out.add("const #{type} #{CFG1_PREFIX}#{symbolName} = " \
-							"(#{type})(#{symbolData[:EXPR]});")
-    if !symbolData[:DEFAULT].nil?
-      cfg1Out.add("#else")
-      cfg1Out.add("const #{type} #{CFG1_PREFIX}#{symbolName} = " \
-							"(#{type})(#{symbolData[:DEFAULT]});")
-    end
-    if !symbolData[:CONDITION].nil?
-      cfg1Out.add("#endif")
-    end
-  end
-
-  # 静的API／プリプロセッサディレクティブの処理
-  $cfgFileInfo.each do |cfgInfo|
-    if cfgInfo.has_key?(:DIRECTIVE)
-      cfg1Out.add2(cfgInfo[:DIRECTIVE])
-    else
-      apiDef = $apiDefinition[cfgInfo[:API]]
-      apiIndex = cfgInfo[:INDEX]
-      cfg1Out.add("#line #{cfgInfo[:_LINE_]} \"#{cfgInfo[:_FILE_]}\"")
-      cfg1Out.add("const unsigned_t #{CFG1_PREFIX}static_api_" \
-										"#{apiIndex} = #{apiIndex};")
-      apiDef[:PARAM].each do |apiParam|
-        if apiParam.has_key?(:ID_DEF)
-          cfg1Out.add("#define #{cfgInfo[apiParam[:NAME]]}\t(<>)")
-        elsif (apiParam.has_key?(:SIGNED) || apiParam.has_key?(:UNSIGNED)) \
-										&& !cfgInfo[apiParam[:NAME]].nil?
-          type = apiParam.has_key?(:SIGNED) ? "signed_t" : "unsigned_t"
-          cfg1Out.add("#line #{cfgInfo[:_LINE_]} \"#{cfgInfo[:_FILE_]}\"")
-          cfg1Out.add("const #{type} #{CFG1_PREFIX}valueof_" \
-							"#{apiParam[:NAME]}_#{apiIndex} = " \
-							"(#{type})(#{cfgInfo[apiParam[:NAME]]});")
-        end
+    # 値取得シンボルの処理
+    $symbolValueTable.each do |symbolName, symbolData|
+      if symbolData.has_key?(:BOOL)
+        type = "signed_t"
+      elsif symbolData.has_key?(:INTPTR)
+        type = "uintptr_t"
+      elsif symbolData.has_key?(:SIGNED)
+        type = "signed_t"
+      else
+        type = "unsigned_t"
       end
-      cfg1Out.add
+      if symbolData.has_key?(:CONDITION)
+        @cfg1Out.add("#if #{symbolData[:CONDITION]}")
+      end
+      @cfg1Out.add("const #{type} #{CFG1_PREFIX}#{symbolName} = " \
+								"(#{type})(#{symbolData[:EXPR]});")
+      if symbolData.has_key?(:ELSE_EXPR)
+        @cfg1Out.add("#else")
+        @cfg1Out.add("const #{type} #{CFG1_PREFIX}#{symbolName} = " \
+								"(#{type})(#{symbolData[:ELSE_EXPR]});")
+      end
+      if symbolData.has_key?(:CONDITION)
+        @cfg1Out.add("#endif")
+      end
+    end
+    @cfg1Out.add
+
+    # ドメインIDの定義の生成
+    $domainId.each do |domainName, domainVal|
+      if domainVal > 0
+        @cfg1Out.add("#define #{domainName} #{domainVal}")
+      end
+    end
+    @cfg1Out.add
+
+    # 静的API／プリプロセッサディレクティブの処理
+    $cfgFileInfo.each do |cfgInfo|
+      if cfgInfo.has_key?(:DIRECTIVE)
+        # 条件ディレクティブを出力
+        if cfgInfo[:DIRECTIVE] =~ /^#(ifdef|ifndef|if|endif|else|elif)\b/
+          OutLineNumber(cfgInfo)
+          @cfg1Out.add2(cfgInfo[:DIRECTIVE])
+        end
+      else
+        apiDef = $apiDefinition[cfgInfo[:APINAME]]
+        apiIndex = cfgInfo[:INDEX]
+        OutLineNumber(cfgInfo)
+        @cfg1Out.add("const unsigned_t #{CFG1_PREFIX}static_api_" \
+										"#{apiIndex} = #{apiIndex};")
+        apiDef[:PARAM].each do |apiParam|
+          next unless apiParam.has_key?(:NAME)
+          paramName = apiParam[:NAME]
+          next unless cfgInfo.has_key?(paramName)	# パラメータがない場合
+          paramData = cfgInfo[paramName]
+
+          if apiParam.has_key?(:LIST)
+            paramData.each.with_index(1) do |param, index|
+              OutParamDef(param, "#{apiIndex}_#{index}", apiParam, cfgInfo)
+            end
+          else
+            OutParamDef(paramData, "#{apiIndex}", apiParam, cfgInfo)
+          end
+        end
+        if cfgInfo.has_key?(:CLASS)
+          # クラスIDの取得のための処理
+          OutClassLineNumber(cfgInfo)
+          @cfg1Out.add("const signed_t #{CFG1_PREFIX}valueof_CLASS_" \
+                      "#{apiIndex} = (signed_t)(#{cfgInfo[:CLASS]});")
+        end
+        @cfg1Out.add
+      end
     end
   end
 end
@@ -674,16 +914,33 @@ def Pass1
   #
   $cfgFileInfo = []
   $dependencyFiles = $configFileNames.dup
-  $includeFiles = []
+  $domainId = { "TDOM_KERNEL" => -1, "TDOM_NONE" => -2 }
   $configFileNames.each do |configFileName|
     CfgParser.new.parseFile(configFileName)
   end
   abort if $errorFlag					# エラー発生時はabortする
 
   #
+  #  ドメインIDの割当て処理
+  #
+  nextDomainId = 1
+  $domainId.each do |domainName, domainVal|
+    if domainVal.nil?
+      while $domainId.has_value?(nextDomainId)
+        nextDomainId += 1
+      end
+      $domainId[domainName] = nextDomainId
+      if nextDomainId > 32
+        error_exit("too large number of user domains")
+      end
+      nextDomainId += 1
+    end
+  end
+
+  #
   #  cfg1_out.cの生成
   #
-  GenerateCfg1OutC()
+  Cfg1OutC::Generate()
 
   #
   #  依存関係の出力
@@ -699,7 +956,7 @@ def Pass1
       end
     end
 
-    depFile.print("#{CFG1_OUT_C} #{CFG1_OUT_DB}:")
+    depFile.print("#{CFG1_OUT_TIMESTAMP}:")
     $dependencyFiles.each do |fileName|
       depFile.print(" #{fileName}")
     end
@@ -713,13 +970,13 @@ def Pass1
   #
   #  パス2に引き渡す情報をファイルに生成
   #
-  if $omitOutputDb.nil?
+  if !$omitOutputDb
     db = PStore.new(CFG1_OUT_DB)
     db.transaction do
       db[:apiDefinition] = $apiDefinition
       db[:symbolValueTable] = $symbolValueTable
       db[:cfgFileInfo] = $cfgFileInfo
-      db[:includeFiles] = $includeFiles
+      db[:domainId] = $domainId
     end
   end
 end

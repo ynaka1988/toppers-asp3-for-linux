@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2014 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_ovrhdr1.h 233 2014-09-28 09:38:43Z ertl-hiro $
+ *  $Id: test_ovrhdr1.h 1116 2018-12-10 05:04:46Z ertl-hiro $
  */
 
 /* 
@@ -60,6 +60,19 @@
 #define	STACK_SIZE		4096		/* タスクのスタックサイズ */
 #endif /* STACK_SIZE */
 
+#ifndef TEST_TIME_CP
+#define TEST_TIME_CP	50000U		/* チェックポイント到達情報の出力時間 */
+#endif /* TEST_TIME_CP */
+
+#ifndef TEST_TIME_PROC
+#define TEST_TIME_PROC	1000U		/* チェックポイントを通らない場合の時間 */
+#endif /* TEST_TIME_PROC */
+
+/*
+ *  テストの基準時間
+ */
+#define UNIT_TIME		(TEST_TIME_CP * 5)
+
 /*
  *  関数のプロトタイプ宣言
  */
@@ -67,7 +80,6 @@
 
 extern void	task1(intptr_t exinf);
 extern void	task2(intptr_t exinf);
-extern void	task3(intptr_t exinf);
 extern void	alarm1_handler(intptr_t exinf);
 extern void overrun_handler(ID tskid, intptr_t exinf);
 

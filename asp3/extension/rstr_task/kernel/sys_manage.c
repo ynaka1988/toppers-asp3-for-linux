@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2019 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: sys_manage.c 470 2015-12-30 09:50:36Z ertl-hiro $
+ *  $Id: sys_manage.c 1148 2019-01-14 02:55:56Z ertl-hiro $
  */
 
 /*
@@ -156,7 +156,7 @@
 #endif /* LOG_SNS_KER_LEAVE */
 
 /*
- *  タスクの優先順位の回転
+ *  タスクの優先順位の回転［NGKI3548］
  */
 #ifdef TOPPERS_rot_rdq
 
@@ -168,12 +168,12 @@ rot_rdq(PRI tskpri)
 	ER		ercd;
 
 	LOG_ROT_RDQ_ENTER(tskpri);
-	CHECK_UNL();
+	CHECK_UNL();								/*［NGKI2684］*/
 	if (tskpri == TPRI_SELF && !sense_context()) {
-		pri = p_runtsk->bpriority;
+		pri = p_runtsk->bpriority;				/*［NGKI2689］*/
 	}
 	else {
-		CHECK_PAR(VALID_TPRI(tskpri));
+		CHECK_PAR(VALID_TPRI(tskpri));			/*［NGKI2685］*/
 		pri = INT_PRIORITY(tskpri);
 	}
 
@@ -186,13 +186,13 @@ rot_rdq(PRI tskpri)
 		ercd = E_NOSPT;
 	}
 	else {
-		rotate_ready_queue(&(ready_queue[pri]));
+		rotate_ready_queue(p_queue);
 		if (p_runtsk != p_schedtsk) {
 			if (!sense_context()) {
 				dispatch();
 			}
 			else {
-				request_dispatch();
+				request_dispatch_retint();
 			}
 		}
 		ercd = E_OK;
@@ -207,7 +207,7 @@ rot_rdq(PRI tskpri)
 #endif /* TOPPERS_rot_rdq */
 
 /*
- *  実行状態のタスクIDの参照
+ *  実行状態のタスクIDの参照［NGKI3550］
  */
 #ifdef TOPPERS_get_tid
 
@@ -217,12 +217,10 @@ get_tid(ID *p_tskid)
 	ER		ercd;
 
 	LOG_GET_TID_ENTER(p_tskid);
-	CHECK_UNL();
+	CHECK_UNL();								/*［NGKI2707］*/
 
-	lock_cpu();
 	*p_tskid = (p_runtsk == NULL) ? TSK_NONE : TSKID(p_runtsk);
-	ercd = E_OK;
-	unlock_cpu();
+	ercd = E_OK;								/*［NGKI2710］［NGKI2709］*/
 
   error_exit:
 	LOG_GET_TID_LEAVE(ercd, p_tskid);
@@ -232,7 +230,7 @@ get_tid(ID *p_tskid)
 #endif /* TOPPERS_get_tid */
 
 /*
- *  実行できるタスクの数の参照
+ *  実行できるタスクの数の参照［NGKI3623］
  */
 #ifdef TOPPERS_get_lod
 
@@ -244,12 +242,12 @@ get_lod(PRI tskpri, uint_t *p_load)
 	ER		ercd;
 
 	LOG_GET_LOD_ENTER(p_tskid, p_load);
-	CHECK_TSKCTX_UNL();
+	CHECK_TSKCTX_UNL();							/*［NGKI3624］［NGKI3625］*/
 	if (tskpri == TPRI_SELF) {
-		pri = p_runtsk->bpriority;
+		pri = p_runtsk->bpriority;				/*［NGKI3631］*/
 	}
 	else {
-		CHECK_PAR(VALID_TPRI(tskpri));
+		CHECK_PAR(VALID_TPRI(tskpri));			/*［NGKI3626］*/
 		pri = INT_PRIORITY(tskpri);
 	}
 	p_queue = &(ready_queue[pri]);
@@ -272,7 +270,7 @@ get_lod(PRI tskpri, uint_t *p_load)
 #endif /* TOPPERS_get_lod */
 
 /*
- *  指定した優先順位のタスクIDの参照
+ *  指定した優先順位のタスクIDの参照［NGKI3641］
  */
 #ifdef TOPPERS_get_nth
 
@@ -285,12 +283,12 @@ get_nth(PRI tskpri, uint_t nth, ID *p_tskid)
 	ER		ercd;
 
 	LOG_GET_NTH_ENTER(p_tskid, nth, p_tskid);
-	CHECK_TSKCTX_UNL();
+	CHECK_TSKCTX_UNL();							/*［NGKI3642］［NGKI3643］*/
 	if (tskpri == TPRI_SELF) {
-		pri = p_runtsk->bpriority;
+		pri = p_runtsk->bpriority;				/*［NGKI3650］*/
 	}
 	else {
-		CHECK_PAR(VALID_TPRI(tskpri));
+		CHECK_PAR(VALID_TPRI(tskpri));			/*［NGKI3644］*/
 		pri = INT_PRIORITY(tskpri);
 	}
 	p_queue = &(ready_queue[pri]);
@@ -317,7 +315,7 @@ get_nth(PRI tskpri, uint_t nth, ID *p_tskid)
 #endif /* TOPPERS_get_nth */
 
 /*
- *  CPUロック状態への遷移
+ *  CPUロック状態への遷移［NGKI3538］
  */
 #ifdef TOPPERS_loc_cpu
 
@@ -328,8 +326,8 @@ loc_cpu(void)
 
 	LOG_LOC_CPU_ENTER();
 
-	if (!sense_lock()) {
-		lock_cpu();
+	if (!sense_lock()) {						/*［NGKI2731］*/
+		lock_cpu();								/*［NGKI2730］*/
 	}
 	ercd = E_OK;
 
@@ -340,7 +338,7 @@ loc_cpu(void)
 #endif /* TOPPERS_loc_cpu */
 
 /*
- *  CPUロック状態の解除
+ *  CPUロック状態の解除［NGKI3539］
  *
  *  CPUロック中は，ディスパッチが必要となるサービスコールを呼び出すこ
  *  とはできないため，CPUロック状態の解除時にディスパッチャを起動する
@@ -355,8 +353,8 @@ unl_cpu(void)
 
 	LOG_UNL_CPU_ENTER();
 
-	if (sense_lock()) {
-		unlock_cpu();
+	if (sense_lock()) {							/*［NGKI2738］*/
+		unlock_cpu();							/*［NGKI2737］*/
 	}
 	ercd = E_OK;
 
@@ -367,7 +365,7 @@ unl_cpu(void)
 #endif /* TOPPERS_unl_cpu */
 
 /*
- *  ディスパッチの禁止
+ *  ディスパッチの禁止［NGKI2740］
  */
 #ifdef TOPPERS_dis_dsp
 
@@ -377,7 +375,7 @@ dis_dsp(void)
 	ER		ercd;
 
 	LOG_DIS_DSP_ENTER();
-	CHECK_TSKCTX_UNL();
+	CHECK_TSKCTX_UNL();							/*［NGKI2741］［NGKI2742］*/
 
 	lock_cpu();
 	enadsp = false;
@@ -393,7 +391,7 @@ dis_dsp(void)
 #endif /* TOPPERS_dis_dsp */
 
 /*
- *  ディスパッチの許可
+ *  ディスパッチの許可［NGKI2746］
  */
 #ifdef TOPPERS_ena_dsp
 
@@ -403,13 +401,12 @@ ena_dsp(void)
 	ER		ercd;
 
 	LOG_ENA_DSP_ENTER();
-	CHECK_TSKCTX_UNL();
+	CHECK_TSKCTX_UNL();							/*［NGKI2747］［NGKI2748］*/
 
 	lock_cpu();
 	enadsp = true;
 	if (t_get_ipm() == TIPM_ENAALL) {
-		dspflg = true;
-		p_schedtsk = search_schedtsk();
+		set_dspflg();
 		if (p_runtsk->raster && p_runtsk->enater) {
 			task_terminate(p_runtsk);
 			exit_and_dispatch();
@@ -435,7 +432,7 @@ ena_dsp(void)
 #endif /* TOPPERS_ena_dsp */
 
 /*
- *  コンテキストの参照
+ *  コンテキストの参照［NGKI2752］
  */
 #ifdef TOPPERS_sns_ctx
 
@@ -453,7 +450,7 @@ sns_ctx(void)
 #endif /* TOPPERS_sns_ctx */
 
 /*
- *  CPUロック状態の参照
+ *  CPUロック状態の参照［NGKI2754］
  */
 #ifdef TOPPERS_sns_loc
 
@@ -471,7 +468,7 @@ sns_loc(void)
 #endif /* TOPPERS_sns_loc */
 
 /*
- *  ディスパッチ禁止状態の参照
+ *  ディスパッチ禁止状態の参照［NGKI2756］
  */
 #ifdef TOPPERS_sns_dsp
 
@@ -489,7 +486,7 @@ sns_dsp(void)
 #endif /* TOPPERS_sns_dsp */
 
 /*
- *  ディスパッチ保留状態の参照
+ *  ディスパッチ保留状態の参照［NGKI2758］
  */
 #ifdef TOPPERS_sns_dpn
 
@@ -507,7 +504,7 @@ sns_dpn(void)
 #endif /* TOPPERS_sns_dpn */
 
 /*
- *  カーネル非動作状態の参照
+ *  カーネル非動作状態の参照［NGKI2760］
  */
 #ifdef TOPPERS_sns_ker
 

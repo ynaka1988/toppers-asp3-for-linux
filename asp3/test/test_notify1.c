@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2015-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_notify1.c 463 2015-10-18 14:25:55Z ertl-hiro $
+ *  $Id: test_notify1.c 738 2016-04-05 14:19:24Z ertl-hiro $
  */
 
 /* 
@@ -99,14 +99,14 @@
  * 【テストシーケンス】
  *
  *	== TASK1 ==
- *	1:	sta_alm(ALM1, ALM_RELTIM)
+ *	1:	sta_alm(ALM1, TEST_TIME_PROC) ... ref_almで動作確認するまで
  *		assert(event_variable == false)
  *		ref_alm(ALM1, &ralm)
  *		assert((ralm.almstat & TALM_STA) != 0U)
  *		DO(wait_event())								... (A-1)
  *	2:	ref_alm(ALM1, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	3:	sta_alm(ALM2, ALM_RELTIM)
+ *	3:	sta_alm(ALM2, TEST_TIME_CP) ... TASK2-1が実行開始するまで
  *		ref_tsk(TASK2, &rtsk)
  *		assert((rtsk.tskstat & TTS_DMT) != 0U)
  *		ref_alm(ALM2, &ralm)
@@ -117,7 +117,7 @@
  *		assert((ralm.almstat & TALM_STP) != 0U)
  *	6:	wup_tsk(TASK1)
  *	== TASK1（続き）==
- *	7:	sta_alm(ALM3, ALM_RELTIM)
+ *	7:	sta_alm(ALM3, TEST_TIME_CP) ... TASK2-1が実行再開するまで
  *		ref_tsk(TASK2, &rtsk)
  *		assert((rtsk.tskstat & TTS_RDY) != 0U)
  *		ref_alm(ALM3, &ralm)
@@ -129,30 +129,30 @@
  *		assert((ralm.almstat & TALM_STP) != 0U)
  *	11:	wup_tsk(TASK1)
  *	== TASK1（続き）==
- *	12:	dly_tsk(1000U)
+ *	12:	dly_tsk(TEST_TIME_CP) ... TASK1が実行再開するまで
  *	== TASK2-1（続き）==
  *	13:	ext_tsk()
  *	== TASK1（続き）==
- *	14:	sta_alm(ALM3, ALM_RELTIM)
+ *	14:	sta_alm(ALM3, TEST_TIME_PROC) ... すぐに発生しても良い
  *		DO(wait_error())								... (B-1)
  *		assert(error_variable == E_OBJ)
- *	15:	sta_alm(ALM4, ALM_RELTIM)
+ *	15:	sta_alm(ALM4, TEST_TIME_PROC) ... ref_almで動作確認するまで
  *		ref_sem(SEM1, &rsem)
  *		assert(rsem.semcnt == 0U)
  *		ref_alm(ALM4, &ralm)
  *		assert((ralm.almstat & TALM_STA) != 0U)
- *	16:	dly_tsk(ALM_RELTIM * 2)
+ *	16:	dly_tsk(2 * TEST_TIME_PROC) ... ALM4が実行されるまで
  *	17:	ref_sem(SEM1, &rsem)							... (A-5)
  *		assert(rsem.semcnt == 1U)
  *		ref_alm(ALM4, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	18:	sta_alm(ALM4, ALM_RELTIM)
+ *	18:	sta_alm(ALM4, TEST_TIME_CP) ... TASK2-2が実行開始するまで
  *	19:	slp_tsk()
  *	== TASK2-2（2回目）==
  *	20:	wup_tsk(TASK1)									... (B-3)
  *	== TASK1（続き）==
  *	21:	pol_sem(SEM1)
- *	22:	sta_alm(ALM5, ALM_RELTIM)
+ *	22:	sta_alm(ALM5, 2 * TEST_TIME_CP) ... TASK1が実行開始するまで
  *		ref_flg(FLG1, &rflg)
  *		assert(rflg.flgptn == 0x00U)
  *		ref_alm(ALM5, &ralm)
@@ -164,17 +164,17 @@
  *	25:	assert(flgptn == 0x01U)
  *		ref_alm(ALM5, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	26:	sta_alm(ALM6, ALM_RELTIM)
+ *	26:	sta_alm(ALM6, TEST_TIME_CP) ... ref_almで動作確認するまで
  *		ref_dtq(DTQ1, &rdtq)
  *		assert(rdtq.sdtqcnt == 0U)
  *		ref_alm(ALM6, &ralm)
  *		assert((ralm.almstat & TALM_STA) != 0U)
- *	27:	dly_tsk(ALM_RELTIM * 2)
+ *	27:	dly_tsk(2 * TEST_TIME_CP) ... ALM6が実行されるまで
  *	28:	ref_dtq(DTQ1, &rdtq)							... (A-7)
  *		assert(rdtq.sdtqcnt == 1U)
  *		ref_alm(ALM6, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	29:	sta_alm(ALM6, ALM_RELTIM)
+ *	29:	sta_alm(ALM6, TEST_TIME_CP) ... TASK2-2が実行開始するまで
  *	30:	slp_tsk()
  *	== TASK2-2（続き）==
  *	31:	wup_tsk(TASK1)									... (B-4)
@@ -182,7 +182,7 @@
  *	32:	prcv_dtq(DTQ1, &data)
  *		assert(data == 0x01)
  *	33:	act_tsk(TASK2)
- *		sta_alm(ALM7, ALM_RELTIM)
+ *		sta_alm(ALM7, 2 * TEST_TIME_CP) ... TASK1が実行開始するまで
  *		ref_sem(SEM1, &rsem)
  *		assert(rsem.semcnt == 0U)
  *		ref_alm(ALM7, &ralm)
@@ -193,7 +193,7 @@
  *	== TASK1（続き）==
  *	36:	ref_alm(ALM7, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	37:	sta_alm(ALM8, ALM_RELTIM)
+ *	37:	sta_alm(ALM8, TEST_TIME_CP) ... wai_flgで待ちに入るまで
  *		ref_flg(FLG1, &rflg)
  *		assert(rflg.flgptn == 0x01U)
  *		ref_alm(ALM8, &ralm)
@@ -202,30 +202,30 @@
  *	39:	assert(flgptn == 0x03U)
  *		ref_alm(ALM8, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	40:	sta_alm(ALM9, ALM_RELTIM)
- *	41:	ref_dtq(DTQ1, &rdtq)
+ *	40:	sta_alm(ALM9,  TEST_TIME_CP) ... rcv_dtqで待ちに入るまで
+ *		ref_dtq(DTQ1, &rdtq)
  *		assert(rdtq.sdtqcnt == 0U)
  *		ref_alm(ALM9, &ralm)
  *		assert((ralm.almstat & TALM_STA) != 0U)
- *	42:	rcv_dtq(DTQ1, &data)							... (B-7)
- *	43:	assert(data == E_QOVR)
+ *	41:	rcv_dtq(DTQ1, &data)							... (B-7)
+ *	42:	assert(data == E_QOVR)
  *		ref_alm(ALM9, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	44:	sta_alm(ALM10, ALM_RELTIM)
- *	45:	assert(count_variable == 1)
+ *	43:	sta_alm(ALM10, TEST_TIME_CP) ... ref_almで動作確認するまで
+ *	44:	assert(count_variable == 1)
  *		ref_alm(ALM10, &ralm)
  *		assert((ralm.almstat & TALM_STA) != 0U)
  *		DO(wait_count(1))								... (A-2)
- *	46:	ref_alm(ALM10, &ralm)
+ *	45:	ref_alm(ALM10, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	47:	sta_alm(ALM11, ALM_RELTIM)
- *	48:	assert(count_variable == 2)
+ *	46:	sta_alm(ALM11, TEST_TIME_CP) ... ref_almで動作確認するまで
+ *	47:	assert(count_variable == 2)
  *		ref_alm(ALM11, &ralm)
  *		assert((ralm.almstat & TALM_STA) != 0U)
  *		DO(wait_count(2))								... (B-2)
- *	49:	ref_alm(ALM9, &ralm)
+ *	48:	ref_alm(ALM9, &ralm)
  *		assert((ralm.almstat & TALM_STP) != 0U)
- *	50:	END
+ *	49:	END
  */
 
 #include <kernel.h>
@@ -261,19 +261,19 @@ wait_error(void)
 void
 task1(intptr_t exinf)
 {
-	T_RTSK	rtsk;
-	T_RDTQ	rdtq;
-	T_RFLG	rflg;
-	intptr_t	data;
-	FLGPTN	flgptn;
 	ER_UINT	ercd;
 	T_RALM	ralm;
+	T_RTSK	rtsk;
 	T_RSEM	rsem;
+	T_RFLG	rflg;
+	FLGPTN	flgptn;
+	T_RDTQ	rdtq;
+	intptr_t	data;
 
 	test_start(__FILE__);
 
 	check_point(1);
-	ercd = sta_alm(ALM1, ALM_RELTIM);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	check_assert(event_variable == false);
@@ -292,7 +292,7 @@ task1(intptr_t exinf)
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
 	check_point(3);
-	ercd = sta_alm(ALM2, ALM_RELTIM);
+	ercd = sta_alm(ALM2, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	ercd = ref_tsk(TASK2, &rtsk);
@@ -310,7 +310,7 @@ task1(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(7);
-	ercd = sta_alm(ALM3, ALM_RELTIM);
+	ercd = sta_alm(ALM3, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	ercd = ref_tsk(TASK2, &rtsk);
@@ -328,11 +328,11 @@ task1(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(12);
-	ercd = dly_tsk(1000U);
+	ercd = dly_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	check_point(14);
-	ercd = sta_alm(ALM3, ALM_RELTIM);
+	ercd = sta_alm(ALM3, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	wait_error();
@@ -340,7 +340,7 @@ task1(intptr_t exinf)
 	check_assert(error_variable == E_OBJ);
 
 	check_point(15);
-	ercd = sta_alm(ALM4, ALM_RELTIM);
+	ercd = sta_alm(ALM4, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	ercd = ref_sem(SEM1, &rsem);
@@ -354,7 +354,7 @@ task1(intptr_t exinf)
 	check_assert((ralm.almstat & TALM_STA) != 0U);
 
 	check_point(16);
-	ercd = dly_tsk(ALM_RELTIM * 2);
+	ercd = dly_tsk(2 * TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	check_point(17);
@@ -369,7 +369,7 @@ task1(intptr_t exinf)
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
 	check_point(18);
-	ercd = sta_alm(ALM4, ALM_RELTIM);
+	ercd = sta_alm(ALM4, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	check_point(19);
@@ -381,7 +381,7 @@ task1(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(22);
-	ercd = sta_alm(ALM5, ALM_RELTIM);
+	ercd = sta_alm(ALM5, 2 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	ercd = ref_flg(FLG1, &rflg);
@@ -407,7 +407,7 @@ task1(intptr_t exinf)
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
 	check_point(26);
-	ercd = sta_alm(ALM6, ALM_RELTIM);
+	ercd = sta_alm(ALM6, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	ercd = ref_dtq(DTQ1, &rdtq);
@@ -421,7 +421,7 @@ task1(intptr_t exinf)
 	check_assert((ralm.almstat & TALM_STA) != 0U);
 
 	check_point(27);
-	ercd = dly_tsk(ALM_RELTIM * 2);
+	ercd = dly_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	check_point(28);
@@ -436,7 +436,7 @@ task1(intptr_t exinf)
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
 	check_point(29);
-	ercd = sta_alm(ALM6, ALM_RELTIM);
+	ercd = sta_alm(ALM6, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	check_point(30);
@@ -453,7 +453,7 @@ task1(intptr_t exinf)
 	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = sta_alm(ALM7, ALM_RELTIM);
+	ercd = sta_alm(ALM7, 2 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	ercd = ref_sem(SEM1, &rsem);
@@ -477,7 +477,7 @@ task1(intptr_t exinf)
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
 	check_point(37);
-	ercd = sta_alm(ALM8, ALM_RELTIM);
+	ercd = sta_alm(ALM8, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	ercd = ref_flg(FLG1, &rflg);
@@ -503,10 +503,9 @@ task1(intptr_t exinf)
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
 	check_point(40);
-	ercd = sta_alm(ALM9, ALM_RELTIM);
+	ercd = sta_alm(ALM9,  TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	check_point(41);
 	ercd = ref_dtq(DTQ1, &rdtq);
 	check_ercd(ercd, E_OK);
 
@@ -517,11 +516,11 @@ task1(intptr_t exinf)
 
 	check_assert((ralm.almstat & TALM_STA) != 0U);
 
-	check_point(42);
+	check_point(41);
 	ercd = rcv_dtq(DTQ1, &data);
 	check_ercd(ercd, E_OK);
 
-	check_point(43);
+	check_point(42);
 	check_assert(data == E_QOVR);
 
 	ercd = ref_alm(ALM9, &ralm);
@@ -529,11 +528,11 @@ task1(intptr_t exinf)
 
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
-	check_point(44);
-	ercd = sta_alm(ALM10, ALM_RELTIM);
+	check_point(43);
+	ercd = sta_alm(ALM10, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	check_point(45);
+	check_point(44);
 	check_assert(count_variable == 1);
 
 	ercd = ref_alm(ALM10, &ralm);
@@ -543,17 +542,17 @@ task1(intptr_t exinf)
 
 	wait_count(1);
 
-	check_point(46);
+	check_point(45);
 	ercd = ref_alm(ALM10, &ralm);
 	check_ercd(ercd, E_OK);
 
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
-	check_point(47);
-	ercd = sta_alm(ALM11, ALM_RELTIM);
+	check_point(46);
+	ercd = sta_alm(ALM11, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	check_point(48);
+	check_point(47);
 	check_assert(count_variable == 2);
 
 	ercd = ref_alm(ALM11, &ralm);
@@ -563,13 +562,13 @@ task1(intptr_t exinf)
 
 	wait_count(2);
 
-	check_point(49);
+	check_point(48);
 	ercd = ref_alm(ALM9, &ralm);
 	check_ercd(ercd, E_OK);
 
 	check_assert((ralm.almstat & TALM_STP) != 0U);
 
-	check_finish(50);
+	check_finish(49);
 	check_point(0);
 }
 

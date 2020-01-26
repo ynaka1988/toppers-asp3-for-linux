@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2019 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: messagebuf.c 471 2015-12-30 10:03:16Z ertl-hiro $
+ *  $Id: messagebuf.c 1171 2019-03-05 06:50:42Z ertl-hiro $
  */
 
 /*
@@ -217,11 +217,11 @@ dequeue_message(MBFCB *p_mbfcb, void *msg)
 	assert(p_mbfcb->smbfcnt > 0);
 	msgsz = *((uint_t *) &(mbuffer[p_mbfcb->head]));
 	p_mbfcb->head += sizeof(uint_t);
-	if (p_mbfcb->head >= p_mbfcb->p_mbfinib->mbfsz) {
+	if (p_mbfcb->head >= p_mbfinib->mbfsz) {
 		p_mbfcb->head = 0U;
 	}
 
-	remsz = p_mbfcb->p_mbfinib->mbfsz - p_mbfcb->head;
+	remsz = p_mbfinib->mbfsz - p_mbfcb->head;
 	copysz = msgsz;
 	if (remsz < copysz) {
 		memcpy(msg, &(mbuffer[p_mbfcb->head]), remsz);
@@ -231,7 +231,7 @@ dequeue_message(MBFCB *p_mbfcb, void *msg)
 	}
 	memcpy(msg, &(mbuffer[p_mbfcb->head]), copysz);
 	p_mbfcb->head += TOPPERS_ROUND_SZ(copysz, sizeof(uint_t));
-	if (p_mbfcb->head >= p_mbfcb->p_mbfinib->mbfsz) {
+	if (p_mbfcb->head >= p_mbfinib->mbfsz) {
 		p_mbfcb->head = 0U;
 	}
 
@@ -351,9 +351,9 @@ messagebuf_dequeue_wobj(TCB *p_tcb)
 ER
 snd_mbf(ID mbfid, const void *msg, uint_t msgsz)
 {
-	MBFCB	*p_mbfcb;
-	WINFO_SMBF winfo_smbf;
-	ER		ercd;
+	MBFCB		*p_mbfcb;
+	WINFO_SMBF	winfo_smbf;
+	ER			ercd;
 
 	LOG_SND_MBF_ENTER(mbfid, msg, msgsz);
 	CHECK_DISPATCH();
@@ -374,8 +374,8 @@ snd_mbf(ID mbfid, const void *msg, uint_t msgsz)
 	else {
 		winfo_smbf.msg = msg;
 		winfo_smbf.msgsz = msgsz;
-		p_runtsk->tstat = TS_WAITING_SMBF;
-		wobj_make_wait((WOBJCB *) p_mbfcb, (WINFO_WOBJ *) &winfo_smbf);
+		wobj_make_wait((WOBJCB *) p_mbfcb, TS_WAITING_SMBF,
+											(WINFO_WOBJ *) &winfo_smbf);
 		dispatch();
 		ercd = winfo_smbf.winfo.wercd;
 	}
@@ -432,10 +432,10 @@ psnd_mbf(ID mbfid, const void *msg, uint_t msgsz)
 ER
 tsnd_mbf(ID mbfid, const void *msg, uint_t msgsz, TMO tmout)
 {
-	MBFCB	*p_mbfcb;
-	WINFO_SMBF winfo_smbf;
-	TMEVTB	tmevtb;
-	ER		ercd;
+	MBFCB		*p_mbfcb;
+	WINFO_SMBF	winfo_smbf;
+	TMEVTB		tmevtb;
+	ER			ercd;
 
 	LOG_TSND_MBF_ENTER(mbfid, msg, msgsz, tmout);
 	CHECK_DISPATCH();
@@ -460,9 +460,8 @@ tsnd_mbf(ID mbfid, const void *msg, uint_t msgsz, TMO tmout)
 	else {
 		winfo_smbf.msg = msg;
 		winfo_smbf.msgsz = msgsz;
-		p_runtsk->tstat = TS_WAITING_SMBF;
-		wobj_make_wait_tmout((WOBJCB *) p_mbfcb, (WINFO_WOBJ *) &winfo_smbf,
-														&tmevtb, tmout);
+		wobj_make_wait_tmout((WOBJCB *) p_mbfcb, TS_WAITING_SMBF,
+								(WINFO_WOBJ *) &winfo_smbf, &tmevtb, tmout);
 		dispatch();
 		ercd = winfo_smbf.winfo.wercd;
 	}
@@ -483,10 +482,10 @@ tsnd_mbf(ID mbfid, const void *msg, uint_t msgsz, TMO tmout)
 ER_UINT
 rcv_mbf(ID mbfid, void *msg)
 {
-	MBFCB	*p_mbfcb;
-	WINFO_RMBF winfo_rmbf;
-	uint_t	msgsz;
-	ER_UINT	ercd;
+	MBFCB		*p_mbfcb;
+	WINFO_RMBF	winfo_rmbf;
+	uint_t		msgsz;
+	ER_UINT		ercd;
 
 	LOG_RCV_MBF_ENTER(mbfid, msg);
 	CHECK_DISPATCH();
@@ -504,8 +503,7 @@ rcv_mbf(ID mbfid, void *msg)
 		ercd = (ER_UINT) msgsz;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_RMBF;
-		make_wait(&(winfo_rmbf.winfo));
+		make_wait(TS_WAITING_RMBF, &(winfo_rmbf.winfo));
 		queue_insert_prev(&(p_mbfcb->rwait_queue), &(p_runtsk->task_queue));
 		winfo_rmbf.p_mbfcb = p_mbfcb;
 		winfo_rmbf.msg = msg;
@@ -566,11 +564,11 @@ prcv_mbf(ID mbfid, void *msg)
 ER
 trcv_mbf(ID mbfid, void *msg, TMO tmout)
 {
-	MBFCB	*p_mbfcb;
-	WINFO_RMBF winfo_rmbf;
-	TMEVTB	tmevtb;
-	uint_t	msgsz;
-	ER_UINT	ercd;
+	MBFCB		*p_mbfcb;
+	WINFO_RMBF	winfo_rmbf;
+	TMEVTB		tmevtb;
+	uint_t		msgsz;
+	ER_UINT		ercd;
 
 	LOG_TRCV_MBF_ENTER(mbfid, msg, tmout);
 	CHECK_DISPATCH();
@@ -592,8 +590,7 @@ trcv_mbf(ID mbfid, void *msg, TMO tmout)
 		ercd = E_TMOUT;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_RMBF;
-		make_wait_tmout(&(winfo_rmbf.winfo), &tmevtb, tmout);
+		make_wait_tmout(TS_WAITING_RMBF, &(winfo_rmbf.winfo), &tmevtb, tmout);
 		queue_insert_prev(&(p_mbfcb->rwait_queue), &(p_runtsk->task_queue));
 		winfo_rmbf.p_mbfcb = p_mbfcb;
 		winfo_rmbf.msg = msg;

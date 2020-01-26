@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tFixedSizeMemoryPool_inline.h 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tFixedSizeMemoryPool_inline.h 828 2017-10-15 13:18:07Z ertl-hiro $
  */
 
 #ifndef TOPPERS_TFIXEDSIZEMEMORYPOOL_INLINE_H
@@ -50,7 +50,7 @@ Inline ER
 eFixedSizeMemoryPool_get(CELLIDX idx, void **p_block)
 {
 	CELLCB	*p_cellcb = GET_CELLCB(idx);
-	return(get_mpf( ATTR_id, p_block));
+	return(get_mpf(ATTR_id, p_block));
 }
 
 /*

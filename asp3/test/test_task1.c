@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2007-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2007-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_task1.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_task1.c 882 2018-02-01 09:55:37Z ertl-hiro $
  */
 
 /* 
@@ -90,7 +90,6 @@
  * 【テストシーケンス】
  *
  *	== TASK1（優先度：中）==
- *		call(set_bit_func(bit_kernel))
  *	1:	act_tsk(TASK2)					... (A-1)
  *	== TASK2（優先度：高）==
  *	2:	slp_tsk()						... (H-2)
@@ -136,7 +135,7 @@
  *	== TASK6（続き）==
  *	32:	slp_tsk()						... (H-3)
  *	== TASK5（続き）==
- *	33:	sta_alm(ALM1, 10000U)
+ *	33:	sta_alm(ALM1, TEST_TIME_CP) ... ALM1が実行開始するまで
  *	34:	slp_tsk()						... (H-1)
  *	== ALM1 ==
  *	35:	get_tid(&tskid)
@@ -153,15 +152,13 @@
 #include "kernel_cfg.h"
 #include "test_task1.h"
 
-extern ER	bit_kernel(void);
-
 /* DO NOT DELETE THIS LINE -- gentest depends on it. */
 
 void
 alarm1_handler(intptr_t exinf)
 {
-	ID		tskid;
 	ER_UINT	ercd;
+	ID		tskid;
 
 	check_point(35);
 	ercd = get_tid(&tskid);
@@ -185,8 +182,6 @@ task1(intptr_t exinf)
 	ER_UINT	ercd;
 
 	test_start(__FILE__);
-
-	set_bit_func(bit_kernel);
 
 	check_point(1);
 	ercd = act_tsk(TASK2);
@@ -298,7 +293,7 @@ task5(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(33);
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	check_point(34);

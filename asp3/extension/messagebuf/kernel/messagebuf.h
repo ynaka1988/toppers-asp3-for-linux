@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: messagebuf.h 244 2014-09-30 18:08:03Z ertl-hiro $
+ *  $Id: messagebuf.h 1170 2019-03-01 11:36:05Z ertl-hiro $
  */
 
 /*
@@ -60,7 +60,7 @@
  */
 typedef struct messagebuf_initialization_block {
 	ATR			mbfatr;			/* メッセージバッファ属性 */
-	uint_t		maxmsz;			/* メッセージの最大長 */
+	uint_t		maxmsz;			/* 最大メッセージサイズ */
 	size_t		mbfsz;			/* メッセージバッファ管理領域のサイズ */
 	void		*mbfmb;			/* メッセージバッファ管理領域の先頭番地 */
 } MBFINIB;

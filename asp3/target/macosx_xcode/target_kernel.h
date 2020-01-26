@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2004-2014 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2004-2017 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_kernel.h 229 2014-09-28 07:50:26Z ertl-hiro $
+ *  $Id: target_kernel.h 1105 2018-12-02 09:22:47Z ertl-hiro $
  */
 
 /*
@@ -51,25 +51,6 @@
 
 #ifndef TOPPERS_TARGET_KERNEL_H
 #define TOPPERS_TARGET_KERNEL_H
-
-/*
- *  ターゲット依存部でサポートできる機能
- */
-#define TOPPERS_TARGET_SUPPORT_DIS_INT		/* dis_int */
-#define TOPPERS_TARGET_SUPPORT_ENA_INT		/* ena_int */
-#define TOPPERS_TARGET_SUPPORT_OVRHDR		/* オーバランハンドラ */
-
-/*
- *  高分解能タイマのタイマ周期
- *
- *  タイマ周期が2^32の場合には，このマクロを定義しない．
- */
-#undef TCYC_HRTCNT
-
-/*
- *  高分解能タイマのカウント値の進み幅
- */
-#define TSTEP_HRTCNT	1U
 
 /*
  *  割込み優先度の範囲
@@ -86,5 +67,24 @@
 #define TMIN_INTPRI		(-6)		/* 割込み優先度の最小値（最高値）*/
 #endif /* TMIN_INTPRI */
 #define TMAX_INTPRI		(-1)		/* 割込み優先度の最大値（最低値） */
+
+/*
+ *  ターゲット依存部でサポートできる機能
+ */
+#define TOPPERS_TARGET_SUPPORT_DIS_INT		/* dis_int */
+#define TOPPERS_TARGET_SUPPORT_ENA_INT		/* ena_int */
+#define TOPPERS_TARGET_SUPPORT_RAS_INT		/* ras_int */
+#define TOPPERS_TARGET_SUPPORT_PRB_INT		/* prb_int */
+#define TOPPERS_TARGET_SUPPORT_OVRHDR		/* オーバランハンドラ */
+
+/*
+ *  高分解能タイマのタイマ周期
+ */
+/* TCYC_HRTCNTは定義しない．*/
+
+/*
+ *  高分解能タイマのカウント値の進み幅
+ */
+#define TSTEP_HRTCNT	1U
 
 #endif /* TOPPERS_TARGET_KERNEL_H */

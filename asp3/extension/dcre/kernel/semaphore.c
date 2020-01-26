@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: semaphore.c 471 2015-12-30 10:03:16Z ertl-hiro $
+ *  $Id: semaphore.c 1030 2018-11-01 12:40:36Z ertl-hiro $
  */
 
 /*
@@ -174,13 +174,20 @@ acre_sem(const T_CSEM *pk_csem)
 {
 	SEMCB	*p_semcb;
 	SEMINIB	*p_seminib;
+	ATR		sematr;
+	uint_t	isemcnt, maxsem;
 	ER		ercd;
 
 	LOG_ACRE_SEM_ENTER(pk_csem);
 	CHECK_TSKCTX_UNL();
-	CHECK_RSATR(pk_csem->sematr, TA_TPRI);
-	CHECK_PAR(0 <= pk_csem->isemcnt && pk_csem->isemcnt <= pk_csem->maxsem);
-	CHECK_PAR(1 <= pk_csem->maxsem && pk_csem->maxsem <= TMAX_MAXSEM);
+
+	sematr = pk_csem->sematr;
+	isemcnt = pk_csem->isemcnt;
+	maxsem = pk_csem->maxsem;
+
+	CHECK_VALIDATR(sematr, TA_TPRI);
+	CHECK_PAR(0 <= isemcnt && isemcnt <= maxsem);
+	CHECK_PAR(1 <= maxsem && maxsem <= TMAX_MAXSEM);
 
 	lock_cpu();
 	if (tnum_sem == 0 || queue_empty(&free_semcb)) {
@@ -189,9 +196,9 @@ acre_sem(const T_CSEM *pk_csem)
 	else {
 		p_semcb = ((SEMCB *) queue_delete_next(&free_semcb));
 		p_seminib = (SEMINIB *)(p_semcb->p_seminib);
-		p_seminib->sematr = pk_csem->sematr;
-		p_seminib->isemcnt = pk_csem->isemcnt;
-		p_seminib->maxsem = pk_csem->maxsem;
+		p_seminib->sematr = sematr;
+		p_seminib->isemcnt = isemcnt;
+		p_seminib->maxsem = maxsem;
 
 		queue_initialize(&(p_semcb->wait_queue));
 		p_semcb->semcnt = p_semcb->p_seminib->isemcnt;
@@ -278,7 +285,7 @@ sig_sem(ID semid)
 				dispatch();
 			}
 			else {
-				request_dispatch();
+				request_dispatch_retint();
 			}
 		}
 		ercd = E_OK;
@@ -307,9 +314,9 @@ sig_sem(ID semid)
 ER
 wai_sem(ID semid)
 {
-	SEMCB	*p_semcb;
-	WINFO_SEM winfo_sem;
-	ER		ercd;
+	SEMCB		*p_semcb;
+	WINFO_SEM	winfo_sem;
+	ER			ercd;
 
 	LOG_WAI_SEM_ENTER(semid);
 	CHECK_DISPATCH();
@@ -328,8 +335,8 @@ wai_sem(ID semid)
 		ercd = E_OK;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_SEM;
-		wobj_make_wait((WOBJCB *) p_semcb, (WINFO_WOBJ *) &winfo_sem);
+		wobj_make_wait((WOBJCB *) p_semcb, TS_WAITING_SEM,
+				 							(WINFO_WOBJ *) &winfo_sem);
 		dispatch();
 		ercd = winfo_sem.winfo.wercd;
 	}
@@ -386,10 +393,10 @@ pol_sem(ID semid)
 ER
 twai_sem(ID semid, TMO tmout)
 {
-	SEMCB	*p_semcb;
-	WINFO_SEM winfo_sem;
-	TMEVTB	tmevtb;
-	ER		ercd;
+	SEMCB		*p_semcb;
+	WINFO_SEM	winfo_sem;
+	TMEVTB		tmevtb;
+	ER			ercd;
 
 	LOG_TWAI_SEM_ENTER(semid, tmout);
 	CHECK_DISPATCH();
@@ -412,9 +419,8 @@ twai_sem(ID semid, TMO tmout)
 		ercd = E_TMOUT;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_SEM;
-		wobj_make_wait_tmout((WOBJCB *) p_semcb, (WINFO_WOBJ *) &winfo_sem,
-														&tmevtb, tmout);
+		wobj_make_wait_tmout((WOBJCB *) p_semcb, TS_WAITING_SEM,
+								(WINFO_WOBJ *) &winfo_sem, &tmevtb, tmout);
 		dispatch();
 		ercd = winfo_sem.winfo.wercd;
 	}

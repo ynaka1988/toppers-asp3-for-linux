@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: dataqueue.c 471 2015-12-30 10:03:16Z ertl-hiro $
+ *  $Id: dataqueue.c 1128 2018-12-20 16:49:45Z ertl-hiro $
  */
 
 /*
@@ -344,32 +344,39 @@ acre_dtq(const T_CDTQ *pk_cdtq)
 	DTQCB		*p_dtqcb;
 	DTQINIB		*p_dtqinib;
 	ATR			dtqatr;
+	uint_t		dtqcnt;
 	DTQMB		*p_dtqmb;
 	ER			ercd;
 
 	LOG_ACRE_DTQ_ENTER(pk_cdtq);
 	CHECK_TSKCTX_UNL();
-	CHECK_RSATR(pk_cdtq->dtqatr, TA_TPRI);
+
 	dtqatr = pk_cdtq->dtqatr;
+	dtqcnt = pk_cdtq->dtqcnt;
 	p_dtqmb = pk_cdtq->dtqmb;
+
+	CHECK_VALIDATR(dtqatr, TA_TPRI);
+	if (p_dtqmb != NULL) {
+		CHECK_PAR(MB_ALIGN(p_dtqmb));
+	}
 
 	lock_cpu();
 	if (tnum_dtq == 0 || queue_empty(&free_dtqcb)) {
 		ercd = E_NOID;
 	}
 	else {
-		if (pk_cdtq->dtqcnt != 0 && p_dtqmb == NULL) {
-			p_dtqmb = kernel_malloc(sizeof(DTQMB) * pk_cdtq->dtqcnt);
+		if (dtqcnt != 0 && p_dtqmb == NULL) {
+			p_dtqmb = malloc_mpk(sizeof(DTQMB) * dtqcnt);
 			dtqatr |= TA_MBALLOC;
 		}
-		if (pk_cdtq->dtqcnt != 0 && p_dtqmb == NULL) {
+		if (dtqcnt != 0 && p_dtqmb == NULL) {
 			ercd = E_NOMEM;
 		}
 		else {
 			p_dtqcb = ((DTQCB *) queue_delete_next(&free_dtqcb));
 			p_dtqinib = (DTQINIB *)(p_dtqcb->p_dtqinib);
 			p_dtqinib->dtqatr = dtqatr;
-			p_dtqinib->dtqcnt = pk_cdtq->dtqcnt;
+			p_dtqinib->dtqcnt = dtqcnt;
 			p_dtqinib->p_dtqmb = p_dtqmb;
 
 			queue_initialize(&(p_dtqcb->swait_queue));
@@ -418,7 +425,7 @@ del_dtq(ID dtqid)
 		init_wait_queue(&(p_dtqcb->rwait_queue));
 		p_dtqinib = (DTQINIB *)(p_dtqcb->p_dtqinib);
 		if ((p_dtqinib->dtqatr & TA_MBALLOC) != 0U) {
-			kernel_free(p_dtqinib->p_dtqmb);
+			free_mpk(p_dtqinib->p_dtqmb);
 		}
 		p_dtqinib->dtqatr = TA_NOEXS;
 		queue_insert_prev(&free_dtqcb, &(p_dtqcb->swait_queue));
@@ -444,9 +451,9 @@ del_dtq(ID dtqid)
 ER
 snd_dtq(ID dtqid, intptr_t data)
 {
-	DTQCB	*p_dtqcb;
-	WINFO_SDTQ winfo_sdtq;
-	ER		ercd;
+	DTQCB		*p_dtqcb;
+	WINFO_SDTQ	winfo_sdtq;
+	ER			ercd;
 
 	LOG_SND_DTQ_ENTER(dtqid, data);
 	CHECK_DISPATCH();
@@ -468,8 +475,8 @@ snd_dtq(ID dtqid, intptr_t data)
 	}
 	else {
 		winfo_sdtq.data = data;
-		p_runtsk->tstat = TS_WAITING_SDTQ;
-		wobj_make_wait((WOBJCB *) p_dtqcb, (WINFO_WOBJ *) &winfo_sdtq);
+		wobj_make_wait((WOBJCB *) p_dtqcb, TS_WAITING_SDTQ,
+											(WINFO_WOBJ *) &winfo_sdtq);
 		dispatch();
 		ercd = winfo_sdtq.winfo.wercd;
 	}
@@ -508,7 +515,7 @@ psnd_dtq(ID dtqid, intptr_t data)
 				dispatch();
 			}
 			else {
-				request_dispatch();
+				request_dispatch_retint();
 			}
 		}
 		ercd = E_OK;
@@ -533,10 +540,10 @@ psnd_dtq(ID dtqid, intptr_t data)
 ER
 tsnd_dtq(ID dtqid, intptr_t data, TMO tmout)
 {
-	DTQCB	*p_dtqcb;
-	WINFO_SDTQ winfo_sdtq;
-	TMEVTB	tmevtb;
-	ER		ercd;
+	DTQCB		*p_dtqcb;
+	WINFO_SDTQ	winfo_sdtq;
+	TMEVTB		tmevtb;
+	ER			ercd;
 
 	LOG_TSND_DTQ_ENTER(dtqid, data, tmout);
 	CHECK_DISPATCH();
@@ -562,9 +569,8 @@ tsnd_dtq(ID dtqid, intptr_t data, TMO tmout)
 	}
 	else {
 		winfo_sdtq.data = data;
-		p_runtsk->tstat = TS_WAITING_SDTQ;
-		wobj_make_wait_tmout((WOBJCB *) p_dtqcb, (WINFO_WOBJ *) &winfo_sdtq,
-														&tmevtb, tmout);
+		wobj_make_wait_tmout((WOBJCB *) p_dtqcb, TS_WAITING_SDTQ,
+								(WINFO_WOBJ *) &winfo_sdtq, &tmevtb, tmout);
 		dispatch();
 		ercd = winfo_sdtq.winfo.wercd;
 	}
@@ -592,11 +598,13 @@ fsnd_dtq(ID dtqid, intptr_t data)
 	CHECK_UNL();
 	CHECK_ID(VALID_DTQID(dtqid));
 	p_dtqcb = get_dtqcb(dtqid);
-	CHECK_ILUSE(p_dtqcb->p_dtqinib->dtqcnt > 0U);
 
 	lock_cpu();
 	if (p_dtqcb->p_dtqinib->dtqatr == TA_NOEXS) {
 		ercd = E_NOEXS;
+	}
+	else if (!(p_dtqcb->p_dtqinib->dtqcnt > 0U)) {
+		ercd = E_ILUSE;
 	}
 	else {
 		force_send_data(p_dtqcb, data);
@@ -605,11 +613,11 @@ fsnd_dtq(ID dtqid, intptr_t data)
 				dispatch();
 			}
 			else {
-				request_dispatch();
+				request_dispatch_retint();
 			}
 		}
+		ercd = E_OK;
 	}
-	ercd = E_OK;
 	unlock_cpu();
 
   error_exit:
@@ -627,9 +635,9 @@ fsnd_dtq(ID dtqid, intptr_t data)
 ER
 rcv_dtq(ID dtqid, intptr_t *p_data)
 {
-	DTQCB	*p_dtqcb;
-	WINFO_RDTQ winfo_rdtq;
-	ER		ercd;
+	DTQCB		*p_dtqcb;
+	WINFO_RDTQ	winfo_rdtq;
+	ER			ercd;
 
 	LOG_RCV_DTQ_ENTER(dtqid, p_data);
 	CHECK_DISPATCH();
@@ -650,8 +658,7 @@ rcv_dtq(ID dtqid, intptr_t *p_data)
 		ercd = E_OK;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_RDTQ;
-		make_wait(&(winfo_rdtq.winfo));
+		make_wait(TS_WAITING_RDTQ, &(winfo_rdtq.winfo));
 		queue_insert_prev(&(p_dtqcb->rwait_queue), &(p_runtsk->task_queue));
 		winfo_rdtq.p_dtqcb = p_dtqcb;
 		LOG_TSKSTAT(p_runtsk);
@@ -716,10 +723,10 @@ prcv_dtq(ID dtqid, intptr_t *p_data)
 ER
 trcv_dtq(ID dtqid, intptr_t *p_data, TMO tmout)
 {
-	DTQCB	*p_dtqcb;
-	WINFO_RDTQ winfo_rdtq;
-	TMEVTB	tmevtb;
-	ER		ercd;
+	DTQCB		*p_dtqcb;
+	WINFO_RDTQ	winfo_rdtq;
+	TMEVTB		tmevtb;
+	ER			ercd;
 
 	LOG_TRCV_DTQ_ENTER(dtqid, p_data, tmout);
 	CHECK_DISPATCH();
@@ -744,8 +751,7 @@ trcv_dtq(ID dtqid, intptr_t *p_data, TMO tmout)
 		ercd = E_TMOUT;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_RDTQ;
-		make_wait_tmout(&(winfo_rdtq.winfo), &tmevtb, tmout);
+		make_wait_tmout(TS_WAITING_RDTQ, &(winfo_rdtq.winfo), &tmevtb, tmout);
 		queue_insert_prev(&(p_dtqcb->rwait_queue), &(p_runtsk->task_queue));
 		winfo_rdtq.p_dtqcb = p_dtqcb;
 		LOG_TSKSTAT(p_runtsk);

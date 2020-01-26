@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2004-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2004-2019 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: kernel.h 520 2016-01-14 05:06:26Z ertl-hiro $
+ *  $Id: kernel.h 1269 2019-10-02 16:34:35Z ertl-hiro $
  */
 
 /*
@@ -78,6 +78,18 @@ extern "C" {
 #ifdef TOPPERS_TARGET_SUPPORT_ENA_INT
 #define TOPPERS_SUPPORT_ENA_INT			/* ena_intがサポートされている */
 #endif /* TOPPERS_TARGET_SUPPORT_ENA_INT */
+
+#ifdef TOPPERS_TARGET_SUPPORT_CLR_INT
+#define TOPPERS_SUPPORT_CLR_INT			/* clr_intがサポートされている */
+#endif /* TOPPERS_TARGET_SUPPORT_CLR_INT */
+
+#ifdef TOPPERS_TARGET_SUPPORT_RAS_INT
+#define TOPPERS_SUPPORT_RAS_INT			/* ras_intがサポートされている */
+#endif /* TOPPERS_TARGET_SUPPORT_RAS_INT */
+
+#ifdef TOPPERS_TARGET_SUPPORT_PRB_INT
+#define TOPPERS_SUPPORT_PRB_INT			/* prb_intがサポートされている */
+#endif /* TOPPERS_TARGET_SUPPORT_PRB_INT */
 
 #define TOPPERS_SUPPORT_DYNAMIC_CRE		/* 動的生成機能拡張 */
 
@@ -194,7 +206,7 @@ typedef struct t_ctsk {
 	TASK		task;		/* タスクのメインルーチンの先頭番地 */
 	PRI			itskpri;	/* タスクの起動時優先度 */
 	size_t		stksz;		/* タスクのスタック領域のサイズ */
-	STK_T 		*stk;		/* タスクのスタック領域の先頭番地 */
+	STK_T		*stk;		/* タスクのスタック領域の先頭番地 */
 } T_CTSK;
 
 typedef struct t_rtsk {
@@ -234,7 +246,7 @@ typedef struct t_rflg {
 typedef struct t_cdtq {
 	ATR		dtqatr;		/* データキュー属性 */
 	uint_t	dtqcnt;		/* データキュー管理領域に格納できるデータ数 */
-	void 	*dtqmb;		/* データキュー管理領域の先頭番地 */
+	void	*dtqmb;		/* データキュー管理領域の先頭番地 */
 } T_CDTQ;
 
 typedef struct t_rdtq {
@@ -248,7 +260,7 @@ typedef struct t_cpdq {
 	uint_t	pdqcnt;		/* 優先度データキュー管理領域に格納できるデータ数 */
 	PRI		maxdpri;	/* 優先度データキューに送信できるデータ優先度の最
 						   大値 */
-	void 	*pdqmb;		/* 優先度データキュー管理領域の先頭番地 */
+	void	*pdqmb;		/* 優先度データキュー管理領域の先頭番地 */
 } T_CPDQ;
 
 typedef struct t_rpdq {
@@ -274,8 +286,8 @@ typedef struct t_cmpf {
 	ATR		mpfatr;		/* 固定長メモリプール属性 */
 	uint_t	blkcnt;		/* 獲得できる固定長メモリブロックの数 */
 	uint_t	blksz;		/* 固定長メモリブロックのサイズ */
-	MPF_T 	*mpf;		/* 固定長メモリプール領域の先頭番地 */
-	void 	*mpfmb;		/* 固定長メモリプール管理領域の先頭番地 */
+	MPF_T	*mpf;		/* 固定長メモリプール領域の先頭番地 */
+	void	*mpfmb;		/* 固定長メモリプール管理領域の先頭番地 */
 } T_CMPF;
 
 typedef struct t_rmpf {
@@ -322,7 +334,7 @@ typedef struct t_cisr {
 /*
  *  タスク管理機能
  */
-extern ER_UINT	acre_tsk(const T_CTSK *pk_ctsk) throw();
+extern ER_ID	acre_tsk(const T_CTSK *pk_ctsk) throw();
 extern ER		del_tsk(ID tskid) throw();
 extern ER		act_tsk(ID tskid) throw();
 extern ER_UINT	can_act(ID tskid) throw();
@@ -470,6 +482,9 @@ extern ER_ID	acre_isr(const T_CISR *pk_cisr) throw();
 extern ER		del_isr(ID isrid) throw();
 extern ER		dis_int(INTNO intno) throw();
 extern ER		ena_int(INTNO intno) throw();
+extern ER		clr_int(INTNO intno) throw();
+extern ER		ras_int(INTNO intno) throw();
+extern ER_BOOL	prb_int(INTNO intno) throw();
 extern ER		chg_ipm(PRI intpri) throw();
 extern ER		get_ipm(PRI *p_intpri) throw();
 
@@ -507,6 +522,9 @@ extern bool_t	xsns_dpn(void *p_excinf) throw();
 #define iext_ker()							ext_ker()
 #define idis_int(intno)						dis_int(intno)
 #define iena_int(intno)						ena_int(intno)
+#define iclr_int(intno)						clr_int(intno)
+#define iras_int(intno)						ras_int(intno)
+#define iprb_int(intno)						prb_int(intno)
 #define ixsns_dpn(p_excinf)					xsns_dpn(p_excinf)
 
 /*
@@ -612,8 +630,8 @@ extern bool_t	xsns_dpn(void *p_excinf) throw();
  */
 #define TKERNEL_MAKER	UINT_C(0x0118)	/* カーネルのメーカーコード */
 #define TKERNEL_PRID	UINT_C(0x0007)	/* カーネルの識別番号 */
-#define TKERNEL_SPVER	UINT_C(0xf630)	/* カーネル仕様のバージョン番号 */
-#define TKERNEL_PRVER	UINT_C(0x3000)	/* カーネルのバージョン番号 */
+#define TKERNEL_SPVER	UINT_C(0xf634)	/* カーネル仕様のバージョン番号 */
+#define TKERNEL_PRVER	UINT_C(0x3050)	/* カーネルのバージョン番号 */
 
 /*
  *  キューイング回数の最大値
@@ -631,7 +649,7 @@ extern bool_t	xsns_dpn(void *p_excinf) throw();
 /*
  *  システム時刻の調整できる範囲（単位：μ秒）
  */
-#define TMIN_ADJTIM		-1000000		/* システム時刻の最小調整時間 */
+#define TMIN_ADJTIM		(-1000000)		/* システム時刻の最小調整時間 */
 #define TMAX_ADJTIM		1000000			/* システム時刻の最大調整時間 */
 
 /*
@@ -653,16 +671,19 @@ extern bool_t	xsns_dpn(void *p_excinf) throw();
 #define COUNT_MPF_T(blksz)	TOPPERS_COUNT_SZ(blksz, sizeof(MPF_T))
 #define ROUND_MPF_T(blksz)	TOPPERS_ROUND_SZ(blksz, sizeof(MPF_T))
 
+#define COUNT_MB_T(sz)		TOPPERS_COUNT_SZ(sz, sizeof(MB_T))
+#define ROUND_MB_T(sz)		TOPPERS_ROUND_SZ(sz, sizeof(MB_T))
+
 #define TSZ_DTQMB(dtqcnt)	(sizeof(intptr_t) * (dtqcnt))
-#define TCNT_DTQMB(dtqcnt)	TOPPERS_COUNT_SZ(TSZ_DTQMB(dtqcnt), sizeof(MB_T))
+#define TCNT_DTQMB(dtqcnt)	COUNT_MB_T(TSZ_DTQMB(dtqcnt))
 
 #ifndef TSZ_PDQMB
 #define TSZ_PDQMB(pdqcnt)	(sizeof(intptr_t) * 3 * (pdqcnt))
 #endif /* TSZ_PDQMB */
-#define TCNT_PDQMB(pdqcnt)	TOPPERS_COUNT_SZ(TSZ_PDQMB(pdqcnt), sizeof(MB_T))
+#define TCNT_PDQMB(pdqcnt)	COUNT_MB_T(TSZ_PDQMB(pdqcnt))
 
 #define TSZ_MPFMB(blkcnt)	(sizeof(uint_t) * (blkcnt))
-#define TCNT_MPFMB(blkcnt)	TOPPERS_COUNT_SZ(TSZ_MPFMB(blkcnt), sizeof(MB_T))
+#define TCNT_MPFMB(blkcnt)	COUNT_MB_T(TSZ_MPFMB(blkcnt))
 
 /*
  *  その他の構成定数

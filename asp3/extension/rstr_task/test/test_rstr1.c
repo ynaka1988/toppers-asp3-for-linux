@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2010-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2010-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_rstr1.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_rstr1.c 738 2016-04-05 14:19:24Z ertl-hiro $
  */
 
 /* 
@@ -87,12 +87,12 @@
  *	1:	act_tsk(TASK2)
  *	== TASK2-1（優先度：高）==
  *	2:	slp_tsk() -> E_NOSPT						... (A-1)
- *		tslp_tsk(10000U) -> E_NOSPT					... (A-2)
- *		dly_tsk(10000U) -> E_NOSPT					... (A-3)
+ *		tslp_tsk(TEST_TIME_PROC) -> E_NOSPT			... (A-2)
+ *		dly_tsk(TEST_TIME_PROC) -> E_NOSPT			... (A-3)
  *		wai_sem(SEM1) -> E_NOSPT					... (A-4)
  *		pol_sem(SEM1)								... (A-5)
  *		pol_sem(SEM1) -> E_TMOUT
- *		twai_sem(SEM1, 10000U) -> E_NOSPT			... (A-6)
+ *		twai_sem(SEM1, TEST_TIME_PROC) -> E_NOSPT	... (A-6)
  *  	ext_tsk()
  *	== TASK1（続き）==
  *	3:	chg_pri(TASK3, HIGH_PRIORITY) -> E_NOSPT	... (B-1)
@@ -101,7 +101,7 @@
  *		rel_wai(TASK3) -> E_NOSPT					... (B-5)
  *		sus_tsk(TASK3) -> E_NOSPT					... (B-7)
  *		rsm_tsk(TASK3) -> E_NOSPT					... (B-8)
- *		sta_alm(ALM1, 10000U)
+ *		sta_alm(ALM1, TEST_TIME_PROC) ... ALM1が実行開始するまで
  *		slp_tsk()
  *	== ALM1 ==
  *	4:	wup_tsk(TASK3) -> E_NOSPT					... (B-3)
@@ -206,7 +206,7 @@ task1(intptr_t exinf)
 	ercd = rsm_tsk(TASK3);
 	check_ercd(ercd, E_NOSPT);
 
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();
@@ -239,10 +239,10 @@ task2(intptr_t exinf)
 		ercd = slp_tsk();
 		check_ercd(ercd, E_NOSPT);
 
-		ercd = tslp_tsk(10000U);
+		ercd = tslp_tsk(TEST_TIME_PROC);
 		check_ercd(ercd, E_NOSPT);
 
-		ercd = dly_tsk(10000U);
+		ercd = dly_tsk(TEST_TIME_PROC);
 		check_ercd(ercd, E_NOSPT);
 
 		ercd = wai_sem(SEM1);
@@ -254,7 +254,7 @@ task2(intptr_t exinf)
 		ercd = pol_sem(SEM1);
 		check_ercd(ercd, E_TMOUT);
 
-		ercd = twai_sem(SEM1, 10000U);
+		ercd = twai_sem(SEM1, TEST_TIME_PROC);
 		check_ercd(ercd, E_NOSPT);
 
 		ercd = ext_tsk();

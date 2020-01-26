@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2004-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2004-2019 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: kernel.h 520 2016-01-14 05:06:26Z ertl-hiro $
+ *  $Id: kernel.h 1269 2019-10-02 16:34:35Z ertl-hiro $
  */
 
 /*
@@ -78,6 +78,18 @@ extern "C" {
 #ifdef TOPPERS_TARGET_SUPPORT_ENA_INT
 #define TOPPERS_SUPPORT_ENA_INT			/* ena_intがサポートされている */
 #endif /* TOPPERS_TARGET_SUPPORT_ENA_INT */
+
+#ifdef TOPPERS_TARGET_SUPPORT_CLR_INT
+#define TOPPERS_SUPPORT_CLR_INT			/* clr_intがサポートされている */
+#endif /* TOPPERS_TARGET_SUPPORT_CLR_INT */
+
+#ifdef TOPPERS_TARGET_SUPPORT_RAS_INT
+#define TOPPERS_SUPPORT_RAS_INT			/* ras_intがサポートされている */
+#endif /* TOPPERS_TARGET_SUPPORT_RAS_INT */
+
+#ifdef TOPPERS_TARGET_SUPPORT_PRB_INT
+#define TOPPERS_SUPPORT_PRB_INT			/* prb_intがサポートされている */
+#endif /* TOPPERS_TARGET_SUPPORT_PRB_INT */
 
 #define TOPPERS_SUPPORT_PRI_LEVEL		/* タスク優先度の範囲の拡張 */
 
@@ -317,6 +329,9 @@ extern ER		ext_ker(void) throw();
  */
 extern ER		dis_int(INTNO intno) throw();
 extern ER		ena_int(INTNO intno) throw();
+extern ER		clr_int(INTNO intno) throw();
+extern ER		ras_int(INTNO intno) throw();
+extern ER_BOOL	prb_int(INTNO intno) throw();
 extern ER		chg_ipm(PRI intpri) throw();
 extern ER		get_ipm(PRI *p_intpri) throw();
 
@@ -354,6 +369,9 @@ extern bool_t	xsns_dpn(void *p_excinf) throw();
 #define iext_ker()							ext_ker()
 #define idis_int(intno)						dis_int(intno)
 #define iena_int(intno)						ena_int(intno)
+#define iclr_int(intno)						clr_int(intno)
+#define iras_int(intno)						ras_int(intno)
+#define iprb_int(intno)						prb_int(intno)
 #define ixsns_dpn(p_excinf)					xsns_dpn(p_excinf)
 
 /*
@@ -459,8 +477,8 @@ extern bool_t	xsns_dpn(void *p_excinf) throw();
  */
 #define TKERNEL_MAKER	UINT_C(0x0118)	/* カーネルのメーカーコード */
 #define TKERNEL_PRID	UINT_C(0x0007)	/* カーネルの識別番号 */
-#define TKERNEL_SPVER	UINT_C(0xf630)	/* カーネル仕様のバージョン番号 */
-#define TKERNEL_PRVER	UINT_C(0x3000)	/* カーネルのバージョン番号 */
+#define TKERNEL_SPVER	UINT_C(0xf634)	/* カーネル仕様のバージョン番号 */
+#define TKERNEL_PRVER	UINT_C(0x3050)	/* カーネルのバージョン番号 */
 
 /*
  *  キューイング回数の最大値
@@ -478,7 +496,7 @@ extern bool_t	xsns_dpn(void *p_excinf) throw();
 /*
  *  システム時刻の調整できる範囲（単位：μ秒）
  */
-#define TMIN_ADJTIM		-1000000		/* システム時刻の最小調整時間 */
+#define TMIN_ADJTIM		(-1000000)		/* システム時刻の最小調整時間 */
 #define TMAX_ADJTIM		1000000			/* システム時刻の最大調整時間 */
 
 /*

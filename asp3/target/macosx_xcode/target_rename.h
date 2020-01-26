@@ -38,15 +38,5 @@
 #define target_ovrtimer_get_current	_kernel_target_ovrtimer_get_current
 #define target_timer_handler		_kernel_target_timer_handler
 
-/*
- *  tTraceLog.c
- */
-#define log_dsp_enter				_kernel_log_dsp_enter
-#define log_dsp_leave				_kernel_log_dsp_leave
-#define log_inh_enter				_kernel_log_inh_enter
-#define log_inh_leave				_kernel_log_inh_leave
-#define log_exc_enter				_kernel_log_exc_enter
-#define log_exc_leave				_kernel_log_exc_leave
-
 
 #endif /* TOPPERS_TARGET_RENAME_H */

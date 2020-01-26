@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: overrun.h 443 2015-08-13 03:10:52Z ertl-hiro $
+ *  $Id: overrun.h 1118 2018-12-12 00:34:17Z ertl-hiro $
  */
 
 /*
@@ -59,25 +59,19 @@ typedef struct overrun_handler_initialization_block {
 /*
  *  オーバランハンドラ初期化ブロックのエリア（kernel_cfg.c）
  */
-extern const OVRINIB	ovrinib[];
+extern const OVRINIB	ovrinib;
 
 /*
- *  オーバランタイマが動作中かを示すフラグ
- */
-extern bool_t	ovrtimer_flag;
-
-/*
- *  オーバランハンドラ機能の初期化
- */
-extern void	initialize_overrun(void);
-
-/*
- *  オーバランハンドラ用タイマの動作開始
+ *  オーバランタイマの動作開始
+ *
+ *  この関数は，アセンブリコードから呼び出すために用意している．
  */
 extern void	ovrtimer_start(void);
 
 /*
- *  オーバランハンドラ用タイマの停止
+ *  オーバランタイマの停止
+ *
+ *  この関数は，アセンブリコードから呼び出すために用意している．
  */
 extern void	ovrtimer_stop(void);
 

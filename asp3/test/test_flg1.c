@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_flg1.c 599 2016-02-07 03:33:35Z ertl-hiro $
+ *  $Id: test_flg1.c 738 2016-04-05 14:19:24Z ertl-hiro $
  */
 
 /* 
@@ -261,7 +261,7 @@
  *	36: set_flg(FLG4, 0x01)											... (I-3)
  *	== TASK1（続き）==
  *	37:	clr_flg(FLG3, 0)
- *		sta_alm(ALM1, 10000U)
+ *		sta_alm(ALM1, 2 * TEST_TIME_CP) ... ALM1が実行開始するまで
  *	38:	wai_flg(FLG3, 0x01, TWF_ORW, &flgptn)
  *	== TASK3（続き）==
  *	39:	wai_flg(FLG3, 0x02, TWF_ORW, &flgptn)
@@ -520,7 +520,7 @@ task1(intptr_t exinf)
 	ercd = clr_flg(FLG3, 0);
 	check_ercd(ercd, E_OK);
 
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, 2 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	check_point(38);

@@ -37,15 +37,16 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tSIOPortMacOSX.cdl 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tSIOPortMacOSX.cdl 1095 2018-11-28 00:57:28Z ertl-hiro $
  */
 
 /*
- *		SIOドライバ（Mac OS X用）のコンポーネント記述
+ *		シリアルインタフェースドライバのターゲット依存部（Mac OS X用）
+ *		のコンポーネント記述
  */
 
 /*
- *  Mac OX X に関する定義
+ *  Mac OS X に関する定義
  */
 import_C("tecs_termios.h");
 
@@ -74,7 +75,7 @@ celltype tSIOPortMacOSXMain {
 	};
 
 	var {
-		bool_t			openflag = false;	/* オープン済みフラグ */
+		bool_t			opened = false;	/* オープン済みフラグ */
 		struct termios	saved_term;		/* 元の端末制御情報 */
 		int_t			read_fd;		/* 読出し用ファイルディスクリプタ */
 		bool_t			rcv_flag;		/* 受信文字バッファ有効フラグ */

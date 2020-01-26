@@ -4,7 +4,7 @@
 #  TOPPERS Software
 #      Toyohashi Open Platform for Embedded Real-Time Systems
 # 
-#  Copyright (C) 2016 by Embedded and Real-Time Systems Laboratory
+#  Copyright (C) 2016-2019 by Embedded and Real-Time Systems Laboratory
 #              Graduate School of Information Science, Nagoya Univ., JAPAN
 # 
 #  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -36,9 +36,10 @@
 #  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #  の責任を負わない．
 # 
-#  $Id: testexec.rb 600 2016-02-07 11:46:22Z ertl-hiro $
+#  $Id: testexec.rb 1275 2019-10-03 16:01:48Z ertl-hiro $
 # 
 
+Encoding.default_external = 'utf-8'
 require "pp"
 
 #
@@ -46,73 +47,100 @@ require "pp"
 #
 TEST_SPEC = {
   # 機能テストプログラム
-  "cpuexc1"  => { :SRC=>"test_cpuexc1", :CFG=>"test_cpuexc" },
-  "cpuexc2"  => { :SRC=>"test_cpuexc2", :CFG=>"test_cpuexc" },
-  "cpuexc3"  => { :SRC=>"test_cpuexc3", :CFG=>"test_cpuexc" },
-  "cpuexc4"  => { :SRC=>"test_cpuexc4", :CFG=>"test_cpuexc" },
-  "cpuexc5"  => { :SRC=>"test_cpuexc5", :CFG=>"test_cpuexc" },
-  "cpuexc6"  => { :SRC=>"test_cpuexc6", :CFG=>"test_cpuexc" },
-  "cpuexc7"  => { :SRC=>"test_cpuexc7", :CFG=>"test_cpuexc" },
-  "cpuexc8"  => { :SRC=>"test_cpuexc8", :CFG=>"test_cpuexc" },
-  "cpuexc9"  => { :SRC=>"test_cpuexc9", :CFG=>"test_cpuexc" },
-  "cpuexc10" => { :SRC=>"test_cpuexc10", :CFG=>"test_cpuexc" },
-  "dlynse"   => { :SRC=>"test_dlynse" },
-  "dtq1"     => { :SRC=>"test_dtq1" },
-  "flg1"     => { :SRC=>"test_flg1" },
-  "hrt1"     => { :SRC=>"test_hrt1" },
-  "mutex1"   => { :SRC=>"test_mutex1", :BIT=>"mutex" },
-  "mutex2"   => { :SRC=>"test_mutex2", :BIT=>"mutex" },
-  "mutex3"   => { :SRC=>"test_mutex3", :BIT=>"mutex" },
-  "mutex4"   => { :SRC=>"test_mutex4", :BIT=>"mutex" },
-  "mutex5"   => { :SRC=>"test_mutex5", :BIT=>"mutex" },
-  "mutex6"   => { :SRC=>"test_mutex6", :BIT=>"mutex" },
-  "mutex7"   => { :SRC=>"test_mutex7", :BIT=>"mutex" },
-  "mutex8"   => { :SRC=>"test_mutex8", :BIT=>"mutex" },
-  "notify1"  => { :SRC=>"test_notify1" },
-  "raster1"  => { :SRC=>"test_raster1", :BIT=>"kernel" },
-  "raster2"  => { :SRC=>"test_raster2" },
-  "sem1"     => { :SRC=>"test_sem1" },
-  "sem2"     => { :SRC=>"test_sem2" },
-  "sysman1"  => { :SRC=>"test_sysman1" },
-  "sysstat1" => { :SRC=>"test_sysstat1" },
-  "task1"    => { :SRC=>"test_task1", :BIT=>"kernel" },
-  "tmevt1"   => { :SRC=>"test_hrt1" },
+  "cpuexc1"  => { SRC: "test_cpuexc1", CFG: "test_cpuexc" },
+  "cpuexc2"  => { SRC: "test_cpuexc2", CFG: "test_cpuexc" },
+  "cpuexc3"  => { SRC: "test_cpuexc3", CFG: "test_cpuexc" },
+  "cpuexc4"  => { SRC: "test_cpuexc4", CFG: "test_cpuexc" },
+  "cpuexc5"  => { SRC: "test_cpuexc5", CFG: "test_cpuexc" },
+  "cpuexc6"  => { SRC: "test_cpuexc6", CFG: "test_cpuexc" },
+  "cpuexc7"  => { SRC: "test_cpuexc7", CFG: "test_cpuexc" },
+  "cpuexc8"  => { SRC: "test_cpuexc8", CFG: "test_cpuexc" },
+  "cpuexc9"  => { SRC: "test_cpuexc9", CFG: "test_cpuexc" },
+  "cpuexc10" => { SRC: "test_cpuexc10", CFG: "test_cpuexc" },
+  "dlynse"   => { SRC: "test_dlynse" },
+  "dtq1"     => { SRC: "test_dtq1" },
+  "exttsk"   => { SRC: "test_exttsk", CDL: "test_pf_bitkernel" },
+  "flg1"     => { SRC: "test_flg1" },
+  "hrt1"     => { SRC: "test_hrt1" },
+  "int1"     => { SRC: "test_int1" },
+  "mutex1"   => { SRC: "test_mutex1", CDL: "test_pf_bitmutex" },
+  "mutex2"   => { SRC: "test_mutex2", CDL: "test_pf_bitmutex" },
+  "mutex3"   => { SRC: "test_mutex3", CDL: "test_pf_bitmutex" },
+  "mutex4"   => { SRC: "test_mutex4", CDL: "test_pf_bitmutex" },
+  "mutex5"   => { SRC: "test_mutex5", CDL: "test_pf_bitmutex" },
+  "mutex6"   => { SRC: "test_mutex6", CDL: "test_pf_bitmutex" },
+  "mutex7"   => { SRC: "test_mutex7", CDL: "test_pf_bitmutex" },
+  "mutex8"   => { SRC: "test_mutex8", CDL: "test_pf_bitmutex" },
+  "notify1"  => { SRC: "test_notify1" },
+  "raster1"  => { SRC: "test_raster1", CDL: "test_pf_bitkernel" },
+  "raster2"  => { SRC: "test_raster2" },
+  "sem1"     => { SRC: "test_sem1" },
+  "sem2"     => { SRC: "test_sem2" },
+  "suspend1" => { SRC: "test_suspend1" },
+  "sysman1"  => { SRC: "test_sysman1" },
+  "sysstat1" => { SRC: "test_sysstat1" },
+  "task1"    => { SRC: "test_task1", CDL: "test_pf_bitkernel" },
+  "tmevt1"   => { SRC: "test_tmevt1" },
 
   # メッセージバッファ機能拡張パッケージの機能テストプログラム
-  "messagebuf1" => { :SRC=>"test_messagebuf1", :BIT=>"kernel" },
-  "messagebuf2" => { :SRC=>"test_messagebuf2", :BIT=>"kernel" },
+  "messagebuf1" => { SRC: "test_messagebuf1", CDL: "test_pf_bitkernel" },
+  "messagebuf2" => { SRC: "test_messagebuf2", CDL: "test_pf_bitkernel" },
 
   # オーバランハンドラ機能拡張パッケージの機能テストプログラム
-  "ovrhdr1"  => { :SRC=>"test_ovrhdr1" },
+  "ovrhdr1"  => { SRC: "test_ovrhdr1" },
+  "ovrhdr2"  => { SRC: "test_ovrhdr2" },
+  "ovrhdr3"  => { TARGET: 1, SRC: "simt_ovrhdr3", DEFS: "-DHRT_CONFIG1" },
+  "ovrhdr4"  => { SRC: "test_ovrhdr4" },
 
   # 制約タスク拡張パッケージの機能テストプログラム
-  "rstr1"    => { :SRC=>"test_rstr1" },
-  "rstr2"    => { :SRC=>"test_rstr2" },
+  "rstr1"    => { SRC: "test_rstr1" },
+  "rstr2"    => { SRC: "test_rstr2" },
 
   # サブ優先度機能拡張パッケージの機能テストプログラム
-  "subprio1" => { :SRC=>"test_subprio1" },
-  "subprio2" => { :SRC=>"test_subprio2" },
+  "subprio1" => { SRC: "test_subprio1" },
+  "subprio2" => { SRC: "test_subprio2" },
 
   # システム時刻管理機能テストプログラム
-  "systim1" => { :TARGET=>1, :SRC=>"hrt_systim1", :DEFS=>"-DHRT_CONFIG1" },
-  "systim2" => { :TARGET=>1, :SRC=>"hrt_systim2", :DEFS=>"-DHRT_CONFIG1" },
-  "systim3" => { :TARGET=>1, :SRC=>"hrt_systim3", :DEFS=>"-DHRT_CONFIG1" },
-  "systim4" => { :TARGET=>1, :SRC=>"hrt_systim4", :DEFS=>"-DHRT_CONFIG2" },
+  "systim1" => { TARGET: 1, SRC: "simt_systim1",
+								DEFS: "-DHRT_CONFIG1 -DHOOK_HRT_EVENT" },
+  "systim2" => { TARGET: 1, SRC: "simt_systim2",
+								DEFS: "-DHRT_CONFIG1 -DHOOK_HRT_EVENT" },
+  "systim3" => { TARGET: 1, SRC: "simt_systim3",
+								DEFS: "-DHRT_CONFIG1 -DHOOK_HRT_EVENT" },
+  "systim4" => { TARGET: 1, SRC: "simt_systim4",
+								DEFS: "-DHRT_CONFIG2 -DHOOK_HRT_EVENT" },
+  "systim1_64hrt" => { TARGET: 1, SRC: "simt_systim1_64hrt",
+				CFG: "simt_systim1", DEFS: "-DHRT_CONFIG3 -DHOOK_HRT_EVENT" },
+  "systim2_64hrt" => { TARGET: 1, SRC: "simt_systim2_64hrt",
+				CFG: "simt_systim2", DEFS: "-DHRT_CONFIG3 -DHOOK_HRT_EVENT" },
+  "systim3_64hrt" => { TARGET: 1, SRC: "simt_systim3_64hrt",
+				CFG: "simt_systim3", DEFS: "-DHRT_CONFIG3 -DHOOK_HRT_EVENT" },
 
   # ドリフト調整機能拡張パッケージのシステム時刻管理機能テストプログラム
-  "drift1"   => { :TARGET=>1, :SRC=>"hrt_drift1", :DEFS=>"-DHRT_CONFIG1" },
-  "drift1-64ops"  => { :TARGET=>1, :SRC=>"hrt_drift1",
-								:DEFS=>"-DHRT_CONFIG1 -DUSE_64BIT_OPS" },
-  "systim1-64ops" => { :TARGET=>1, :SRC=>"hrt_systim1",
-								:DEFS=>"-DHRT_CONFIG1 -DUSE_64BIT_OPS" },
+  "drift1"        => { TARGET: 1, SRC: "simt_drift1",
+								DEFS: "-DHRT_CONFIG1 -DHOOK_HRT_EVENT" },
+  "drift1_64hrt"  => { TARGET: 1, SRC: "simt_drift1_64hrt",
+				CFG: "simt_drift1", DEFS: "-DHRT_CONFIG3 -DHOOK_HRT_EVENT" },
+  "drift1_64ops"  => { TARGET: 1, SRC: "simt_drift1",
+				DEFS: "-DHRT_CONFIG1 -DHOOK_HRT_EVENT -DUSE_64BIT_OPS" },
+  "systim1_64ops" => { TARGET: 1, SRC: "simt_systim1",
+				DEFS: "-DHRT_CONFIG1 -DHOOK_HRT_EVENT -DUSE_64BIT_OPS" },
+  "systim2_64ops" => { TARGET: 1, SRC: "simt_systim2",
+				DEFS: "-DHRT_CONFIG1 -DHOOK_HRT_EVENT -DUSE_64BIT_OPS" },
+  "systim3_64ops" => { TARGET: 1, SRC: "simt_systim3",
+				DEFS: "-DHRT_CONFIG1 -DHOOK_HRT_EVENT -DUSE_64BIT_OPS" },
 
   # 性能評価プログラム
-  "perf0" => { :CDL=>"perf_pf" },
-  "perf1" => { :CDL=>"perf_pf" },
-  "perf2" => { :CDL=>"perf_pf" },
-  "perf3" => { :CDL=>"perf_pf" },
-  "perf4" => { :CDL=>"perf_pf" },
-  "perf5" => { :CDL=>"perf_pf" },
+  "perf0" => { CDL: "perf_pf" },
+  "perf1" => { CDL: "perf_pf" },
+  "perf2" => { CDL: "perf_pf" },
+  "perf3" => { CDL: "perf_pf" },
+  "perf4" => { CDL: "perf_pf" },
+  "perf5" => { CDL: "perf_pf" },
+
+  # ARM向けテストプログラム
+  "arm_cpuexc" => { SRC: "arm_cpuexc", SRCDIR: "arch/arm_gcc/test" },
+  "arm_fpu1" => { TARGET: 2, SRC: "arm_fpu1", SRCDIR: "arch/arm_gcc/test" },
 }
 
 #
@@ -160,7 +188,12 @@ def BuildTest(test, testSpec, mkdirFlag=false)
     else
       configCommand += " #{$targetOptions[0]}"
     end
-    configCommand += " -a #{$usedSrcDir}/test"
+    if testSpec.has_key?(:SRCDIR)
+      configCommand += " -a \"#{$usedSrcDir}/#{testSpec[:SRCDIR]}" \
+											" #{$usedSrcDir}/test\""
+    else
+      configCommand += " -a #{$usedSrcDir}/test"
+    end
 
     if (!testSpec.has_key?(:TARGET) || testSpec[:TARGET] == 0)
       configCommand += " -L ../KERNELLIB"
@@ -178,8 +211,18 @@ def BuildTest(test, testSpec, mkdirFlag=false)
     else
       configCommand += " -C test_pf.cdl"
     end
-    if testSpec.has_key?(:BIT)
-      configCommand += " -S bit_#{testSpec[:BIT]}.o"
+    if testSpec.has_key?(:SYSLIB)
+      configCommand += " -S \"" \
+			+ testSpec[:SYSLIB].split(/\s+/).map{|f| f+".o"}.join(" ") \
+			+ "\""
+    end
+    if testSpec.has_key?(:APPLOBJ)
+      configCommand += " -U \"" \
+			+ testSpec[:APPLOBJ].split(/\s+/).map{|f| f+".o"}.join(" ") \
+			+ "\""
+    end
+    if testSpec.has_key?(:OPTS)
+      configCommand += " -o \"#{testSpec[:OPTS]}\""
     end
     if testSpec.has_key?(:DEFS)
       configCommand += " -O \"#{testSpec[:DEFS]}\""

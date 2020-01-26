@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2014-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2014-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_subprio2.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_subprio2.c 856 2017-12-17 01:14:40Z ertl-hiro $
  */
 
 /* 
@@ -43,7 +43,7 @@
  * 【テストの目的】
  *
  *  サブ優先度を用いる優先度が2つある場合をテストする．また，chg_sprが
- *  エラーに成るケースをテストする．
+ *  エラーになるケースをテストする．
  *
  * 【テスト項目】
  *
@@ -89,7 +89,7 @@
  *		loc_cpu()
  *		chg_spr(TASK2, 10) -> E_CTX					... (B-2)
  *		unl_cpu()
- *		sta_alm(ALM1, 10000U)
+ *		sta_alm(ALM1, TEST_TIME_CP) ... ALM1-1が実行開始するまで
  *		slp_tsk()
  *	== TASK4（続き）==
  *	7:	ext_tsk()
@@ -177,7 +177,7 @@ task1(intptr_t exinf)
 	ercd = unl_cpu();
 	check_ercd(ercd, E_OK);
 
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();

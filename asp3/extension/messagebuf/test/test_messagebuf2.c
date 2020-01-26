@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2014-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2014-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_messagebuf2.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_messagebuf2.c 949 2018-04-19 13:29:51Z ertl-hiro $
  */
 
 /* 
@@ -75,22 +75,21 @@
  * 【テストシーケンス】
  *
  *	== TASK1（優先度：高）==
- *		call(set_bit_func(bit_kernel))
  *	1:	act_tsk(TASK2)
  *		act_tsk(TASK3)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-1（優先度：中）1回め ==
  *	2:	snd_mbf(MBF1, string1, 26)
  *	== TASK3（優先度：低）==
  *	3:	snd_mbf(MBF1, string2, 26)
  *	== TASK1（続き）==
  *	4:	ter_tsk(TASK2)									... (A-1)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_PROC) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK1（続き）==
  *	5:	rcv_mbf(MBF1, buf1) -> 26
  *		assert(strncmp(buf1, string2, 26) == 0)
  *		act_tsk(TASK2)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-2（優先度：中）2回め ==
  *	6:	snd_mbf(MBF1, string1, 26)
  *	== TASK3（続き）==
@@ -114,21 +113,21 @@
  *	15:	rcv_mbf(MBF1, buf1) -> 10
  *		assert(strncmp(buf1, string3, 10) == 0)
  *		act_tsk(TASK2)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-4（優先度：中）4回め ==
  *	16:	snd_mbf(MBF1, string1, 26) -> E_RLWAI
  *	== TASK3（続き）==
  *	17:	snd_mbf(MBF1, string2, 26)
  *	== TASK1（続き）==
  *	18:	rel_wai(TASK2)									... (B-1)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-4（続き）==
  *	19:	slp_tsk()
  *	== TASK1（続き）==
  *	20:	rcv_mbf(MBF1, buf1) -> 26
  *		assert(strncmp(buf1, string2, 26) == 0)
  *		wup_tsk(TASK2)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-4（続き）==
  *	21:	snd_mbf(MBF1, string1, 26) -> E_RLWAI
  *	== TASK3（続き）==
@@ -153,33 +152,33 @@
  *	== TASK1（続き）==
  *	31:	rcv_mbf(MBF1, buf1) -> 10
  *		assert(strncmp(buf1, string3, 10) == 0)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-4（続き）==
  *	32:	snd_mbf(MBF1, string1, 26) -> E_RLWAI
  *	== TASK3（続き）==
  *	33:	snd_mbf(MBF1, string2, 26)
  *	== TASK1（続き）==
- *	34:	sta_alm(ALM1, 1000U)
+ *	34:	sta_alm(ALM1, TEST_TIME_PROC) ...  ALM1-1が実行開始するまで
  *		slp_tsk()
  *	== ALM1-1 ==
  *	35:	rel_wai(TASK2)									... (C-1)
  *		wup_tsk(TASK1)
  *		RETURN
  *	== TASK1（続き）==
- *	36:	tslp_tsk(1000U) -> E_TMOUT
+ *	36:	tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-4（続き）==
  *	37:	slp_tsk()
  *	== TASK1（続き）==
  *	38:	rcv_mbf(MBF1, buf1) -> 26
  *		assert(strncmp(buf1, string2, 26) == 0)
  *		wup_tsk(TASK2)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-4（続き）==
  *	39:	snd_mbf(MBF1, string1, 26) -> E_RLWAI
  *	== TASK3（続き）==
  *	40:	snd_mbf(MBF1, string3, 10)
  *	== TASK1（続き）==
- *	41:	sta_alm(ALM1, 1000U)
+ *	41:	sta_alm(ALM1, TEST_TIME_PROC) ...  ALM1-2が実行開始するまで
  *		slp_tsk()
  *	== ALM1-2 ==
  *	42:	rel_wai(TASK2)									... (C-2)
@@ -197,7 +196,7 @@
  *	== TASK1（続き）==
  *	48:	snd_mbf(MBF1, string3, 10)
  *	== TASK3（続き）==
- *	49:	sta_alm(ALM1, 1000U)
+ *	49:	sta_alm(ALM1, TEST_TIME_PROC) ...  ALM1-3が実行開始するまで
  *		slp_tsk()
  *	== ALM1-3 ==
  *	50:	rel_wai(TASK2)									... (C-3)
@@ -208,15 +207,17 @@
  *		wup_tsk(TASK3)
  *		slp_tsk()
  *	== TASK2-4（続き）==
-  *	52:	tsnd_mbf(MBF1, string1, 26, 1000U) -> E_TMOUT	... (D-1)
+ *	52:	tsnd_mbf(MBF1, string1, 26, TEST_TIME_CP) -> E_TMOUT	... (D-1)
+ *											... TASK2-4が実行再開するまで
  *	== TASK3（続き）==
  *	53:	snd_mbf(MBF1, string2, 26)
  *	== TASK2-4（続き）==
- *	54:	tslp_tsk(1000U) -> E_TMOUT
+ *	54:	tslp_tsk(2 * TEST_TIME_PROC) -> E_TMOUT ... TASK2-4が実行再開するまで
  *	== TASK2-4（続き）==
  *	55:	rcv_mbf(MBF1, buf1) -> 26
  *		assert(strncmp(buf1, string2, 26) == 0)
- *	56:	tsnd_mbf(MBF1, string1, 26, 1000U) -> E_TMOUT	... (D-2)
+ *	56:	tsnd_mbf(MBF1, string1, 26, TEST_TIME_CP) -> E_TMOUT	... (D-2)
+ *											... TASK2-4が実行再開するまで
  *	== TASK3（続き）==
  *	57:	snd_mbf(MBF1, string3, 10)
  *	== TASK2-4（続き）==
@@ -226,7 +227,8 @@
  *		assert(strncmp(buf1, string3, 10) == 0)
  *	60:	wup_tsk(TASK2)
  *	== TASK2-4（続き）==
- *	61:	tsnd_mbf(MBF1, string1, 26, 1000U) -> E_TMOUT	... (D-3)
+ *	61:	tsnd_mbf(MBF1, string1, 26, 4 * TEST_TIME_CP) -> E_TMOUT	... (D-3)
+ *											... TASK2-4が実行再開するまで
  *	== TASK3（続き）==
  *	62:	wup_tsk(TASK1)
  *	== TASK1（続き）==
@@ -309,8 +311,6 @@ task1(intptr_t exinf)
 
 	test_start(__FILE__);
 
-	set_bit_func(bit_kernel);
-
 	check_point(1);
 	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
@@ -318,14 +318,14 @@ task1(intptr_t exinf)
 	ercd = act_tsk(TASK3);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(4);
 	ercd = ter_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(TEST_TIME_PROC);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(5);
@@ -337,7 +337,7 @@ task1(intptr_t exinf)
 	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(8);
@@ -360,14 +360,14 @@ task1(intptr_t exinf)
 	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(18);
 	ercd = rel_wai(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(20);
@@ -379,7 +379,7 @@ task1(intptr_t exinf)
 	ercd = wup_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(23);
@@ -399,18 +399,18 @@ task1(intptr_t exinf)
 
 	check_assert(strncmp(buf1, string3, 10) == 0);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(34);
-	ercd = sta_alm(ALM1, 1000U);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();
 	check_ercd(ercd, E_OK);
 
 	check_point(36);
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(38);
@@ -422,11 +422,11 @@ task1(intptr_t exinf)
 	ercd = wup_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(41);
-	ercd = sta_alm(ALM1, 1000U);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();
@@ -535,11 +535,11 @@ task2(intptr_t exinf)
 		check_ercd(ercd, E_RLWAI);
 
 		check_point(52);
-		ercd = tsnd_mbf(MBF1, string1, 26, 1000U);
+		ercd = tsnd_mbf(MBF1, string1, 26, TEST_TIME_CP);
 		check_ercd(ercd, E_TMOUT);
 
 		check_point(54);
-		ercd = tslp_tsk(1000U);
+		ercd = tslp_tsk(TEST_TIME_PROC);
 		check_ercd(ercd, E_TMOUT);
 
 		check_point(55);
@@ -549,7 +549,7 @@ task2(intptr_t exinf)
 		check_assert(strncmp(buf1, string2, 26) == 0);
 
 		check_point(56);
-		ercd = tsnd_mbf(MBF1, string1, 26, 1000U);
+		ercd = tsnd_mbf(MBF1, string1, 26, TEST_TIME_CP);
 		check_ercd(ercd, E_TMOUT);
 
 		check_point(58);
@@ -557,7 +557,7 @@ task2(intptr_t exinf)
 		check_ercd(ercd, E_OK);
 
 		check_point(61);
-		ercd = tsnd_mbf(MBF1, string1, 26, 1000U);
+		ercd = tsnd_mbf(MBF1, string1, 26, 4 * TEST_TIME_CP);
 		check_ercd(ercd, E_TMOUT);
 
 		check_finish(66);
@@ -649,7 +649,7 @@ task3(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(49);
-	ercd = sta_alm(ALM1, 1000U);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();

@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2015 by Ushio Laboratory
  *              Graduate School of Engineering Science, Osaka Univ., JAPAN
- *  Copyright (C) 2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2015-2017 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  *
- *  $Id: tInterruptRequest_inline.h 509 2016-01-12 06:06:14Z ertl-hiro $  
+ *  $Id: tInterruptRequest_inline.h 788 2017-04-01 07:25:17Z ertl-hiro $  
  */
 
 #ifndef TOPPERS_TINTERRUPTREQUEST_INLINE_H
@@ -61,6 +61,36 @@ eInterruptRequest_enable(CELLIDX idx)
 {
 	CELLCB	*p_cellcb = GET_CELLCB(idx);
 	return(ena_int(ATTR_interruptNumber));
+}
+
+/*
+ *  割込み要求のクリア
+ */
+Inline ER
+eInterruptRequest_clear(CELLIDX idx)
+{
+	CELLCB	*p_cellcb = GET_CELLCB(idx);
+	return(clr_int(ATTR_interruptNumber));
+}
+
+/*
+ *  割込みの要求
+ */
+Inline ER
+eInterruptRequest_raise(CELLIDX idx)
+{
+	CELLCB	*p_cellcb = GET_CELLCB(idx);
+	return(ras_int(ATTR_interruptNumber));
+}
+
+/*
+ *  割込み要求のチェック
+ */
+Inline ER_BOOL
+eInterruptRequest_probe(CELLIDX idx)
+{
+	CELLCB	*p_cellcb = GET_CELLCB(idx);
+	return(prb_int(ATTR_interruptNumber));
 }
 
 #endif /* TOPPERS_TINTERRUPTREQUEST_INLINE_H */

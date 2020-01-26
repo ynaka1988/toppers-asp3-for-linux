@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: pridataq.c 471 2015-12-30 10:03:16Z ertl-hiro $
+ *  $Id: pridataq.c 1128 2018-12-20 16:49:45Z ertl-hiro $
  */
 
 /*
@@ -321,34 +321,43 @@ acre_pdq(const T_CPDQ *pk_cpdq)
 	PDQCB	*p_pdqcb;
 	PDQINIB	*p_pdqinib;
 	ATR		pdqatr;
+	uint_t	pdqcnt;
+	PRI		maxdpri;
 	PDQMB	*p_pdqmb;
 	ER		ercd;
 
 	LOG_ACRE_PDQ_ENTER(pk_cpdq);
 	CHECK_TSKCTX_UNL();
-	CHECK_RSATR(pk_cpdq->pdqatr, TA_TPRI);
-	CHECK_PAR(VALID_DPRI(pk_cpdq->maxdpri));
+
 	pdqatr = pk_cpdq->pdqatr;
+	pdqcnt = pk_cpdq->pdqcnt;
+	maxdpri = pk_cpdq->maxdpri;
 	p_pdqmb = pk_cpdq->pdqmb;
+
+	CHECK_VALIDATR(pdqatr, TA_TPRI);
+	CHECK_PAR(VALID_DPRI(maxdpri));
+	if (p_pdqmb != NULL) {
+		CHECK_PAR(MB_ALIGN(p_pdqmb));
+	}
 
 	lock_cpu();
 	if (tnum_pdq == 0 || queue_empty(&free_pdqcb)) {
 		ercd = E_NOID;
 	}
 	else {
-		if (pk_cpdq->pdqcnt != 0 && p_pdqmb == NULL) {
-			p_pdqmb = kernel_malloc(sizeof(PDQMB) * pk_cpdq->pdqcnt);
+		if (pdqcnt != 0 && p_pdqmb == NULL) {
+			p_pdqmb = malloc_mpk(sizeof(PDQMB) * pdqcnt);
 			pdqatr |= TA_MBALLOC;
 		}
-		if (pk_cpdq->pdqcnt != 0 && p_pdqmb == NULL) {
+		if (pdqcnt != 0 && p_pdqmb == NULL) {
 			ercd = E_NOMEM;
 		}
 		else {
 			p_pdqcb = ((PDQCB *) queue_delete_next(&free_pdqcb));
 			p_pdqinib = (PDQINIB *)(p_pdqcb->p_pdqinib);
 			p_pdqinib->pdqatr = pdqatr;
-			p_pdqinib->pdqcnt = pk_cpdq->pdqcnt;
-			p_pdqinib->maxdpri = pk_cpdq->maxdpri;
+			p_pdqinib->pdqcnt = pdqcnt;
+			p_pdqinib->maxdpri = maxdpri;
 			p_pdqinib->p_pdqmb = p_pdqmb;
 
 			queue_initialize(&(p_pdqcb->swait_queue));
@@ -398,7 +407,7 @@ del_pdq(ID pdqid)
 		init_wait_queue(&(p_pdqcb->rwait_queue));
 		p_pdqinib = (PDQINIB *)(p_pdqcb->p_pdqinib);
 		if ((p_pdqinib->pdqatr & TA_MBALLOC) != 0U) {
-			kernel_free(p_pdqinib->p_pdqmb);
+			free_mpk(p_pdqinib->p_pdqmb);
 		}
 		p_pdqinib->pdqatr = TA_NOEXS;
 		queue_insert_prev(&free_pdqcb, &(p_pdqcb->swait_queue));
@@ -424,9 +433,9 @@ del_pdq(ID pdqid)
 ER
 snd_pdq(ID pdqid, intptr_t data, PRI datapri)
 {
-	PDQCB	*p_pdqcb;
-	WINFO_SPDQ winfo_spdq;
-	ER		ercd;
+	PDQCB		*p_pdqcb;
+	WINFO_SPDQ	winfo_spdq;
+	ER			ercd;
 
 	LOG_SND_PDQ_ENTER(pdqid, data, datapri);
 	CHECK_DISPATCH();
@@ -453,8 +462,8 @@ snd_pdq(ID pdqid, intptr_t data, PRI datapri)
 	else {
 		winfo_spdq.data = data;
 		winfo_spdq.datapri = datapri;
-		p_runtsk->tstat = TS_WAITING_SPDQ;
-		wobj_make_wait((WOBJCB *) p_pdqcb, (WINFO_WOBJ *) &winfo_spdq);
+		wobj_make_wait((WOBJCB *) p_pdqcb, TS_WAITING_SPDQ,
+											(WINFO_WOBJ *) &winfo_spdq);
 		dispatch();
 		ercd = winfo_spdq.winfo.wercd;
 	}
@@ -497,7 +506,7 @@ psnd_pdq(ID pdqid, intptr_t data, PRI datapri)
 				dispatch();
 			}
 			else {
-				request_dispatch();
+				request_dispatch_retint();
 			}
 		}
 		ercd = E_OK;
@@ -522,10 +531,10 @@ psnd_pdq(ID pdqid, intptr_t data, PRI datapri)
 ER
 tsnd_pdq(ID pdqid, intptr_t data, PRI datapri, TMO tmout)
 {
-	PDQCB	*p_pdqcb;
-	WINFO_SPDQ winfo_spdq;
-	TMEVTB	tmevtb;
-	ER		ercd;
+	PDQCB		*p_pdqcb;
+	WINFO_SPDQ	winfo_spdq;
+	TMEVTB		tmevtb;
+	ER			ercd;
 
 	LOG_TSND_PDQ_ENTER(pdqid, data, datapri, tmout);
 	CHECK_DISPATCH();
@@ -556,9 +565,8 @@ tsnd_pdq(ID pdqid, intptr_t data, PRI datapri, TMO tmout)
 	else {
 		winfo_spdq.data = data;
 		winfo_spdq.datapri = datapri;
-		p_runtsk->tstat = TS_WAITING_SPDQ;
-		wobj_make_wait_tmout((WOBJCB *) p_pdqcb, (WINFO_WOBJ *) &winfo_spdq,
-														&tmevtb, tmout);
+		wobj_make_wait_tmout((WOBJCB *) p_pdqcb, TS_WAITING_SPDQ,
+								(WINFO_WOBJ *) &winfo_spdq, &tmevtb, tmout);
 		dispatch();
 		ercd = winfo_spdq.winfo.wercd;
 	}
@@ -579,9 +587,9 @@ tsnd_pdq(ID pdqid, intptr_t data, PRI datapri, TMO tmout)
 ER
 rcv_pdq(ID pdqid, intptr_t *p_data, PRI *p_datapri)
 {
-	PDQCB	*p_pdqcb;
-	WINFO_RPDQ winfo_rpdq;
-	ER		ercd;
+	PDQCB		*p_pdqcb;
+	WINFO_RPDQ	winfo_rpdq;
+	ER			ercd;
 
 	LOG_RCV_PDQ_ENTER(pdqid, p_data, p_datapri);
 	CHECK_DISPATCH();
@@ -602,8 +610,7 @@ rcv_pdq(ID pdqid, intptr_t *p_data, PRI *p_datapri)
 		ercd = E_OK;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_RPDQ;
-		make_wait(&(winfo_rpdq.winfo));
+		make_wait(TS_WAITING_RPDQ, &(winfo_rpdq.winfo));
 		queue_insert_prev(&(p_pdqcb->rwait_queue), &(p_runtsk->task_queue));
 		winfo_rpdq.p_pdqcb = p_pdqcb;
 		LOG_TSKSTAT(p_runtsk);
@@ -669,10 +676,10 @@ prcv_pdq(ID pdqid, intptr_t *p_data, PRI *p_datapri)
 ER
 trcv_pdq(ID pdqid, intptr_t *p_data, PRI *p_datapri, TMO tmout)
 {
-	PDQCB	*p_pdqcb;
-	WINFO_RPDQ winfo_rpdq;
-	TMEVTB	tmevtb;
-	ER		ercd;
+	PDQCB		*p_pdqcb;
+	WINFO_RPDQ	winfo_rpdq;
+	TMEVTB		tmevtb;
+	ER			ercd;
 
 	LOG_TRCV_PDQ_ENTER(pdqid, p_data, p_datapri, tmout);
 	CHECK_DISPATCH();
@@ -697,8 +704,7 @@ trcv_pdq(ID pdqid, intptr_t *p_data, PRI *p_datapri, TMO tmout)
 		ercd = E_TMOUT;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_RPDQ;
-		make_wait_tmout(&(winfo_rpdq.winfo), &tmevtb, tmout);
+		make_wait_tmout(TS_WAITING_RPDQ, &(winfo_rpdq.winfo), &tmevtb, tmout);
 		queue_insert_prev(&(p_pdqcb->rwait_queue), &(p_runtsk->task_queue));
 		winfo_rpdq.p_pdqcb = p_pdqcb;
 		LOG_TSKSTAT(p_runtsk);

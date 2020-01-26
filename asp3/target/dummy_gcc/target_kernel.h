@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_kernel.h 231 2014-09-28 07:54:17Z ertl-hiro $
+ *  $Id: target_kernel.h 1105 2018-12-02 09:22:47Z ertl-hiro $
  */
 
 /*
@@ -55,13 +55,16 @@
  */
 #define TOPPERS_TARGET_SUPPORT_DIS_INT		/* dis_int */
 #define TOPPERS_TARGET_SUPPORT_ENA_INT		/* ena_int */
+#define TOPPERS_TARGET_SUPPORT_CLR_INT		/* clr_int */
+#define TOPPERS_TARGET_SUPPORT_RAS_INT		/* ras_int */
+#define TOPPERS_TARGET_SUPPORT_PRB_INT		/* prb_int */
 
 /*
  *  高分解能タイマのタイマ周期
  *
  *  タイマ周期が2^32の場合には，このマクロを定義しない．
  */
-#undef TCYC_HRTCNT
+/* TCYC_HRTCNTは定義しない．*/
 
 /*
  *  高分解能タイマのカウント値の進み幅

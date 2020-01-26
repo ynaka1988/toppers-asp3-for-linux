@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2006-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2006-2017 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_test.h 364 2015-07-26 11:57:44Z ertl-hiro $
+ *  $Id: target_test.h 1172 2019-03-11 04:45:33Z ertl-hiro $
  */
 
 /*
@@ -46,11 +46,36 @@
 #define TOPPERS_TARGET_TEST_H
 
 #include <macosx.h>
+
+/*
+ *  サンプルプログラム／テストプログラムで設定するスタックサイズ
+ */
+#define	STACK_SIZE				SIGSTKSZ
+
+/*
+ *  サンプルプログラム／テストプログラムで使用するCPU例外に関する定義
+ */
 #define CPUEXC1					SIGINFO
 #define RAISE_CPU_EXCEPTION		(raise(SIGINFO))
 #define PREPARE_RETURN_CPUEXC
-#define	STACK_SIZE				SIGSTKSZ
+
+/*
+ *  サンプルプログラム／テストプログラムで使用する割込みに関する定義
+ */
+#define INTNO1					SIGUSR1
+#define INTNO1_INTATR			TA_ENAINT|TA_EDGE
+#define INTNO1_INTPRI			(-5)
+#define intno1_clear()
+
+/*
+ *  サンプルプログラムのためのその他の定義
+ */
 #define LOOP_REF				ULONG_C(10000000)
 #define MEASURE_TWICE
+
+/*
+ *  テストプログラムで使用する時間パラメータに関する定義
+ */
+#define TEST_TIME_CP	1000U
 
 #endif /* TOPPERS_TARGET_TEST_H */

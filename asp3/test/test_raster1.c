@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2014-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2014-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_raster1.c 453 2015-08-15 23:05:31Z ertl-hiro $
+ *  $Id: test_raster1.c 1137 2019-01-04 01:42:50Z ertl-hiro $
  */
 
 /* 
@@ -93,8 +93,6 @@
  *			  返ること［NGKI3467］
  *		(G-3) タスク終了禁止状態の場合にdisterにtrueが返ること［NGKI3468］
  *		(G-4) タスク終了許可状態の場合にdisterにfalseが返ること［NGKI3468］
- *	ASPカーネルに適用されない要求：
- *		［NGKI3473］［NGKI3474］［NGKI3481］
  *
  * 【使用リソース】
  *
@@ -108,9 +106,9 @@
  * 【テストシーケンス】
  *
  *	== TASK1 ==
- *		call(set_bit_func(bit_kernel))
  *	1:	act_tsk(TASK2)
- *		sta_alm(ALM1, 10000U)
+ *		sta_alm(ALM1, TEST_TIME_CP * 2) ... ALM1が実行開始するまで
+ *										... * 2 しないと，時々エラーになる
  *		slp_tsk()
  *	== TASK2-1（1回目）==
  *	2:	DO(while(true))
@@ -133,7 +131,7 @@
  *		assert(rtsk.tskstat == TTS_DMT)
  *	9:	act_tsk(TASK3)
  *	== TASK3-1（1回目）==
- *	10:	tloc_mtx(MTX1, 10000U)
+ *	10:	tloc_mtx(MTX1, 3 * TEST_TIME_CP) ... ras_terされるまで
  *	11:	slp_tsk()
  *	== TASK1（続き）==
  *	12:	ref_tsk(TASK3, &rtsk)
@@ -215,7 +213,7 @@
  *		assert(rtsk.tskstat == TTS_RDY)
  *		assert(rtsk.raster == false)				... (E-1)
  *		assert(rtsk.dister == false)				... (E-2)(G-4)
- *		tslp_tsk(10000U) -> E_TMOUT
+ *		tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-3（3回目）==
  *	41:	dis_ter()
  *		slp_tsk() -> E_RASTER						... (D-3)
@@ -280,8 +278,6 @@
 #include "kernel_cfg.h"
 #include "test_raster1.h"
 
-extern ER	bit_kernel(void);
-
 /* DO NOT DELETE THIS LINE -- gentest depends on it. */
 
 void
@@ -310,13 +306,11 @@ task1(intptr_t exinf)
 
 	test_start(__FILE__);
 
-	set_bit_func(bit_kernel);
-
 	check_point(1);
 	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_CP * 2);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();
@@ -515,7 +509,7 @@ task1(intptr_t exinf)
 
 	check_assert(rtsk.dister == false);
 
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(42);
@@ -648,7 +642,7 @@ task3(intptr_t exinf)
 	switch (++task3_count) {
 	case 1:
 		check_point(10);
-		ercd = tloc_mtx(MTX1, 10000U);
+		ercd = tloc_mtx(MTX1, 3 * TEST_TIME_CP);
 		check_ercd(ercd, E_OK);
 
 		check_point(11);

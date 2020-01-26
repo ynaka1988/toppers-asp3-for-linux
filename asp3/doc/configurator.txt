@@ -2,8 +2,8 @@
 		TOPPERS/ASP3カーネル
 		コンフィギュレータ仕様
 
-		対応バージョン: Release 3.0.0
-		最終更新: 2016年2月5日
+		対応バージョン: Release 3.5.0
+		最終更新: 2019年2月3日
 
 このドキュメントは，TOPPERS/ASP3カーネルのコンフィギュレータが標準的に
 生成すべきファイルの内容について解説したものである．ターゲット依存に生
@@ -14,7 +14,7 @@
      Toyohashi Open Platform for Embedded Real-Time Systems/
      Advanced Standard Profile Kernel
 
- Copyright (C) 2005-2016 by Embedded and Real-Time Systems Laboratory
+ Copyright (C) 2005-2019 by Embedded and Real-Time Systems Laboratory
              Graduate School of Information Science, Nagoya Univ., JAPAN
  
  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -46,7 +46,7 @@
  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  の責任を負わない．
  
- $Id: configurator.txt 582 2016-02-05 00:13:58Z ertl-hiro $
+ $Id: configurator.txt 1269 2019-10-02 16:34:35Z ertl-hiro $
 ----------------------------------------------------------------------
 
 ○目次
@@ -115,7 +115,7 @@ ASP3カーネルのコンフィギュレータが処理する静的APIは次の�
 
 (1) タスク管理機能
 	CRE_TSK(ID tskid, { ATR tskatr, intptr_t exinf, TASK task,
-								PRI itskpri, SIZE stksz, STK_T *stk })
+								PRI itskpri, size_t stksz, STK_T *stk })
 
 (2) 同期・通信機能
 	CRE_SEM(ID semid, { ATR sematr, uint_t isemcnt, uint_t maxsem })
@@ -147,7 +147,7 @@ ASP3カーネルのコンフィギュレータが処理する静的APIは次の�
 	DEF_EXC(EXCNO excno, { ATR excatr, EXCHDR exchdr })
 
 (7) システム構成管理機能
-	DEF_ICS({ SIZE istksz, STK_T *istk })
+	DEF_ICS({ size_t istksz, STK_T *istk })
 	ATT_INI({ ATR iniatr, intptr_t exinf, INIRTN inirtn })
 	ATT_TER({ ATR teratr, intptr_t exinf, TERRTN terrtn })
 
@@ -371,7 +371,7 @@ const ID _kernel_torder_table[TNUM_TSKID] = {
 	<最後に生成されたタスクのタスクID>
 };
 
-(6-1-4) エラー条件
+4.5.2.4 エラー条件
 
 タスクに関するエラー条件は次の通りである．
 
@@ -380,23 +380,37 @@ const ID _kernel_torder_table[TNUM_TSKID] = {
 
 ＊パス2で検出するもの
 ・タスクが1つも登録されていない場合［NGKI0033］
-・tskatrが無効の場合（E_RSATR）［NGKI1028］
+・tskatrが無効の場合（E_RSATR）［NGKI1028］［NGKI3526］［ASPS0009］［NGKI1016］
 　（TA_ACT，TA_NOACTQUE，TARGET_TSKATR以外のビットがセットされている場合）
-	※ TAGET_TSKATRは，ターゲット依存部で追加するタスク属性
-・(TMIN_TPRI <= itskpri && itskpri <= TMAX_TPRI)でない場合（E_PAR）［NGKI1034］
-・stkszが0以下か，ターゲット定義の最小値（TARGET_MIN_STKSZ）よりも小さ
-　い場合（E_PAR）［NGKI1042］
-・stkszがスタック領域のサイズとして正しくない場合（E_PAR）［NGKI1056］
+	※ TARGET_TSKATRは，ターゲット依存部で追加するタスク属性
+・itskpriが有効範囲外の場合（E_PAR）［NGKI1034］
+　（TMIN_TPRI <= itskpri && itskpri <= TMAX_TPRIでない場合）
+・stkszがターゲット定義の最小値（TARGET_MIN_STKSZ，未定義の場合は1）
+　よりも小さい場合（E_PAR）［NGKI1042］… (*1)
+・stkszがターゲット定義の制約に合致しない場合（E_PAR）［NGKI1056］
 	- ターゲット依存の値（CHECK_STKSZ_ALIGN）の倍数でない場合
 	※ このエラーチェックは，stkがNULLでない場合にのみ行う
 
+＊必要であればターゲット依存部（TargetTaskPrepare）で検出するもの
+・tskatrが無効の場合（E_RSATR）［NGKI1028］［NGKI1016］
+	- ターゲット定義のタスク属性が無効の場合
+
 ＊パス3で検出するもの
-・taskがプログラムの開始番地として正しくない場合（E_PAR）［NGKI1033］
+・taskがプログラムの先頭番地として正しくない場合（E_PAR）［NGKI1033］
 	- ターゲット依存の値（CHECK_FUNC_ALIGN）の倍数でない場合
-	- NULLの場合（ターゲット依存，CHECK_FUNC_NONNULL）
-・stkがスタック領域の先頭番地として正しくない場合（E_PAR）［NGKI1056］
+	- NULLの場合（CHECK_FUNC_NONNULLが定義されている場合）
+・stkがターゲット定義の制約に合致しない場合（E_PAR）［NGKI1056］
 	- ターゲット依存の値（CHECK_STACK_ALIGN）の倍数でない場合
-	- NULLの場合（ターゲット依存，CHECK_STACK_NONNULL）
+	- NULLの場合（CHECK_STACK_NONNULLが定義されている場合）
+
+(*1)は，仕様書では，「stkszに0を指定した時や，設定されるスタック領域の
+サイズがターゲット定義の最小値よりも小さくなる時」と規定されている．設
+定されるスタック領域のサイズは，stkszを，ターゲット定義の制約に合致す
+るように大きい方に丸めたものである．そこで，TARGET_MIN_STKSZを，丸める
+前の値で許容される最小値に定義しておけば，stkszがTARGET_MIN_STKSZより
+小さい場合をエラーとして良い．なお，TARGET_MIN_STKSZが定義されない場合
+は，TARGET_MIN_STKSZに1が設定され，このエラーチェックでは，stkszが0の
+場合のみをエラーとすることになる．
 
 4.5.3 セマフォに関する定義
 
@@ -421,10 +435,12 @@ const ID _kernel_torder_table[TNUM_TSKID] = {
 ・同じsemidに対するCRE_SEMが複数ある場合（E_OBJ）［NGKI1463］
 
 ＊パス2で検出するもの
-・sematrが無効の場合（E_RSATR）［NGKI1456］
+・sematrが無効の場合（E_RSATR）［NGKI1456］［NGKI1448］
 　（TA_TPRI以外のビットがセットされている場合）
-・(1 <= maxsem && maxsem <= TMAX_MAXSEM)でない場合（E_PAR）［NGKI1468］
-・(0 <= isemcnt && isemcnt <= maxsem)でない場合（E_PAR）［NGKI1466］
+・maxsemが有効範囲外の場合（E_PAR）［NGKI1468］
+　（1 <= maxsem && maxsem <= TMAX_MAXSEMでない場合）
+・isemcntが有効範囲外の場合（E_PAR）［NGKI1466］
+　（0 <= isemcnt && isemcnt <= maxsemでない場合）
 
 4.5.4 イベントフラグに関する定義
 
@@ -449,16 +465,18 @@ const ID _kernel_torder_table[TNUM_TSKID] = {
 ・同じflgidに対するCRE_FLGが複数ある場合（E_OBJ）［NGKI1569］
 
 ＊パス1で検出するもの
-・iflgptnがFLGPTNに格納できない場合（E_PAR）
-	→ iflgptnがuint32_tに格納できない場合は，cfg1_out.cのコンパイル時
-	   にエラーとなる．
+・iflgptnがFLGPTNに格納できない場合（E_PAR）［NGKI3275］
+	→ iflgptnが，64ビットの整数型があるターゲットではuint64_t，そうで
+	   ないターゲットではuint32_tに格納できない場合は，cfg1_out.cのコ
+	   ンパイル時にエラーまたは警告となる（コンパイラに依存）．
 
 ＊パス2で検出するもの
-・flgatrが無効の場合（E_RSATR）［NGKI1562］
+・flgatrが無効の場合（E_RSATR）［NGKI1562］［NGKI1550］
 　（TA_TPRI，TA_WMUL，TA_CLR以外のビットがセットされている場合）
 ・iflgptnがFLGPTNに格納できない場合（E_PAR）［NGKI3275］
-	→ iflgptnがuint32_tには格納できるが，FLGPTNに格納できない場合は，
-	   パス2でエラーを検出する．
+	→ iflgptnが，64ビットの整数型があるターゲットではuint64_t，そうで
+	   ないターゲットではuint32_tには格納できるが，FLGPTNに格納できな
+	   い場合は，パス2でエラーを検出する．
 
 4.5.5 データキューに関する定義
 
@@ -495,9 +513,8 @@ NULLを用いる．
 ・同じdtqidに対するCRE_DTQが複数ある場合（E_OBJ）［NGKI1677］
 
 ＊パス2で検出するもの
-・dtqatrが無効の場合（E_RSATR）［NGKI1669］
+・dtqatrが無効の場合（E_RSATR）［NGKI1669］［NGKI1661］
 　（TA_TPRI以外のビットがセットされている場合）
-・dtqcntが負の値の場合（E_PAR）［NGKI3288］
 ・dtqmbがNULLでない場合（E_NOSPT）［ASPS0132］
 
 4.5.6 優先度データキューに関する定義
@@ -536,10 +553,10 @@ static PDQMB _kernel_pdqmb_<優先度データキュー名>[pdqcnt];
 ・同じpdqidに対するCRE_PDQが複数ある場合（E_OBJ）［NGKI1812］
 
 ＊パス2で検出するもの
-・pdqatrが無効の場合（E_RSATR）［NGKI1804］
+・pdqatrが無効の場合（E_RSATR）［NGKI1804］［NGKI1795］
 　（TA_TPRI以外のビットがセットされている場合）
-・pdqcntが負の値の場合（E_PAR）［NGKI3289］
-・(TMIN_DPRI <= maxdpri && maxdpri <= TMAX_DPRI)でない場合（E_PAR）［NGKI1819］
+・maxdpriが有効範囲外の場合（E_PAR）［NGKI1819］
+　（TMIN_DPRI <= maxdpri && maxdpri <= TMAX_DPRIでない場合）
 ・pdqmbがNULLでない場合（E_NOSPT）［ASPS0142］
 
 4.5.7 ミューテックスに関する定義
@@ -565,10 +582,11 @@ static PDQMB _kernel_pdqmb_<優先度データキュー名>[pdqcnt];
 ・同じmtxidに対するCRE_MTXが複数ある場合（E_OBJ）［NGKI2032］
 
 ＊パス2で検出するもの
-・mtxatrが無効の場合（E_RSATR）［NGKI2025］
+・mtxatrが無効の場合（E_RSATR）［NGKI2025］［NGKI2010］
 　（TA_NULL，TA_TPRI，TA_CEILINGのいずれでもない場合）
-・優先度上限ミューテックスで，(TMIN_MPRI <= maxmpri && maxmpri <=
-　TMAX_MPRI)でない場合（E_PAR）［NGKI2037］
+・優先度上限ミューテックスで，ceilpriの記述が省略されている場合［NGKI2035］
+・優先度上限ミューテックスで，ceilpriが有効範囲外の場合（E_PAR）［NGKI2037］
+　（TMIN_TPRI <= ceilpri && ceilpri <= TMAX_TPRIでない場合）
 
 4.5.8 固定長メモリプールに関する定義
 
@@ -614,17 +632,16 @@ static MPFMB _kernel_mpfmb_<固定長メモリプール名>[blkcnt];
 ・同じmpfidに対するCRE_MPFが複数ある場合（E_OBJ）［NGKI2236］
 
 ＊パス2で検出するもの
-・mpfatrが無効の場合（E_RSATR）［NGKI2225］
+・mpfatrが無効の場合（E_RSATR）［NGKI2225］［NGKI2218］
 　（TA_TPRI以外のビットがセットされている場合）
-・blkcntが0以下の場合（E_PAR）［NGKI2229］
-・blkszが0以下の場合（E_PAR）［NGKI2230］
+・blkcntが0の場合（E_PAR）［NGKI2229］
+・blkszが0の場合（E_PAR）［NGKI2230］
 ・mpfmbがNULLでない場合（E_NOSPT）［ASPS0166］
 
 ＊パス3で検出するもの
-・mpfが固定長メモリプール領域の先頭番地として正しくない場合（E_PAR）
-　［NGKI2249］
+・mpfがターゲット定義の制約に合致しない場合（E_PAR）［NGKI2249］
 	- ターゲット依存の値（CHECK_MPF_ALIGN）の倍数でない場合
-	- NULLの場合（ターゲット依存，CHECK_MPF_NONNULL）
+	- NULLの場合（CHECK_MPF_NONNULLが定義されている場合）
 
 4.5.9 周期通知に関する定義
 
@@ -666,17 +683,19 @@ static MPFMB _kernel_mpfmb_<固定長メモリプール名>[blkcnt];
 ・同じcycidに対するCRE_CYCが複数ある場合（E_OBJ）［NGKI2392］
 
 ＊パス2で検出するもの
-・cycatrが無効の場合（E_RSATR）［NGKI2383］
+・cycatrが無効の場合（E_RSATR）［NGKI2383］［NGKI2370］［ASPS0172］
 　（TA_STA以外のビットがセットされている場合）
-・(0 < cyctim && cyctim <= TMAX_RELTIM)でない場合（E_PAR）［NGKI2397］
-・(0 <= cycphs && cycphs <= TMAX_RELTIM)でない場合（E_PAR）［NGKI2399］
+・cyctimが有効範囲外の場合（E_PAR）［NGKI2397］
+　（0 < cyctim && cyctim <= TMAX_RELTIMでない場合）
+・cycphsが有効範囲外の場合（E_PAR）［NGKI2399］
+　（0 <= cycphs && cycphs <= TMAX_RELTIMでない場合）
 ・その他，通知ハンドラの生成に関するエラー（4.6.15節）を参照
 
 ＊パス3で検出するもの
-・通知方法中のタイムイベントハンドラの先頭番地または変数の番地が正しく
-　ない（E_PAR）［NGKI3693］
+・通知方法中のタイムイベントハンドラの先頭番地が，プログラムの先頭番地
+　として正しくない場合（E_PAR）［NGKI3693］
 	- ターゲット依存の値（CHECK_FUNC_ALIGN）の倍数でない場合
-	- NULLの場合（ターゲット依存，CHECK_FUNC_NONNULL）
+	- NULLの場合（CHECK_FUNC_NONNULLが定義されている場合）
 ・その他，通知ハンドラの生成に関するエラー（4.6.15節）を参照
 
 4.5.10 アラーム通知に関する定義
@@ -719,15 +738,15 @@ static MPFMB _kernel_mpfmb_<固定長メモリプール名>[blkcnt];
 ・同じalmidに対するCRE_ALMが複数ある場合（E_OBJ）［NGKI2500］
 
 ＊パス2で検出するもの
-・almatrが無効の場合（E_RSATR）［NGKI2491］
-　（TA_STA以外のビットがセットされている場合）
+・almatrが無効の場合（E_RSATR）［NGKI2491］［NGKI3423］［NGKI3424］
+　（TA_NULLでない場合）
 ・その他，通知ハンドラの生成に関するエラー（4.6.15節）を参照
 
 ＊パス3で検出するもの
-・通知方法中のタイムイベントハンドラの先頭番地または変数の番地が正しく
-　ない（E_PAR）［NGKI3693］
+・通知方法中のタイムイベントハンドラの先頭番地が，プログラムの先頭番地
+　として正しくない場合（E_PAR）［NGKI3693］
 	- ターゲット依存の値（CHECK_FUNC_ALIGN）の倍数でない場合
-	- NULLの場合（ターゲット依存，CHECK_FUNC_NONNULL）
+	- NULLの場合（CHECK_FUNC_NONNULLが定義されている場合）
 ・その他，通知ハンドラの生成に関するエラー（4.6.15節）を参照
 
 4.6 通知ハンドラの生成
@@ -1025,12 +1044,14 @@ nfymode2がTENFY_SNDDTQ（データキューへの送信によるエラー通知
 通知ハンドラの生成に関するエラー条件は次の通りである．
 
 ＊パス2で検出するもの
-・nfymodeの値が正しくない（E_PAR）［NGKI3730］［NGKI3721］
+・nfymodeの値が正しくない場合（E_PAR）［NGKI3730］［NGKI3721］
+・パラメータが足りない場合，多すぎる場合
 
 ＊パス3で検出するもの
-・通知方法中の変数の番地が正しくない（E_PAR）［NGKI3699］［NGKI3701］
+・通知方法中の変数の番地が，intptr_t型の変数の番地として正しくない場合
+　（E_PAR）［NGKI3699］［NGKI3701］［NGKI3897］
 	- ターゲット依存の値（CHECK_INTPTR_ALIGN）の倍数でない場合
-	- NULLの場合（ターゲット依存，CHECK_INTPTR_NONNULL）
+	- NULLの場合（CHECK_INTPTR_NONNULLが定義されている場合）
 ・通知方法中のタスクIDが有効範囲外の場合（E_ID）［NGKI3704］
 ・通知方法中のセマフォIDが有効範囲外の場合（E_ID）［NGKI3707］
 ・通知方法中のイベントフラグIDが有効範囲外の場合（E_ID）［NGKI3710］
@@ -1130,21 +1151,26 @@ _kernel_inthdr_<intno>(void)
 ・同じisridに対するCRE_ISRが複数ある場合（E_OBJ）［NGKI3009］
 
 ＊パス2で検出するもの
-・isratrが無効の場合（E_RSATR）［NGKI2998］
+・isratrが無効の場合（E_RSATR）［NGKI2998］［NGKI2952］［NGKI5176］
 　（TARGET_ISRATR以外のビットがセットされている場合）
-	※ TAGET_ISRATRは，ターゲット依存部で追加する割込みサービスルーチン属性
-・intnoがCRE_ISRに対する割込み番号として正しくない場合（E_PAR）［NGKI3003］
-	※ intnoに対応するinhnoがない場合を含む
-・(TMIN_ISRPRI <= isrpri && isrpri <= TMAX_ISRPRI)でない場合（E_PAR）
-　［NGKI3005］
+	※ TARGET_ISRATRは，ターゲット依存部で追加する割込みサービスルーチン属性
+・intnoが有効範囲外の場合（E_PAR）［NGKI3003］
+・isrpriが有効範囲外の場合（E_PAR）［NGKI3005］
+　（TMIN_ISRPRI <= isrpri && isrpri <= TMAX_ISRPRIでない場合）
 ・intnoに対するCFG_INTがない場合（E_OBJ）［NGKI3012］
 ・intnoに対応するinhnoに対してDEF_INHがある場合（E_OBJ）［NGKI3013］
-・intnoに対してCFG_INTで設定された割込み優先度がTMIN_INTPRIよりも小さい
-　場合（E_OBJ）［NGKI3014］
-	※ カーネル管理外の割込みサービスルーチンはサポートしないため
+・intnoでカーネル管理外の割込みを指定した場合（E_OBJ）［NGKI3014］
+　（intnoに対してCFG_INTで設定された割込み優先度がTMIN_INTPRIよりも小
+	さい場合）
+
+＊必要であればターゲット依存部（TargetCheckCreIsr）で検出するもの
+・isratrが無効の場合（E_RSATR）［NGKI2998］［NGKI5176］
+	- ターゲット定義の割込みサービスルーチン属性が無効の場合
 
 ＊可能であればターゲット依存部で検出するもの［NGKI3020］
-・isrがプログラムの開始番地として正しくない場合（E_PAR）［NGKI3004］
+・isrがプログラムの先頭番地として正しくない場合（E_PAR）［NGKI3004］
+	- ターゲット依存の値（CHECK_FUNC_ALIGN）の倍数でない場合
+	- NULLの場合（CHECK_FUNC_NONNULLが定義されている場合）
 
 4.7.2 割込みハンドラに関する定義
 
@@ -1200,32 +1226,45 @@ const INHINIB _kernel_inhinib_table[TNUM_DEF_INHNO] = {
 
 割込みハンドラに関するエラー条件は次の通りである．
 
+＊コンフィギュレータ本体が検出するもの
+・inhnoがDEF_INHによって定義済みの場合（E_OBJ）［NGKI3063］
+
 ＊パス2で検出するもの
-・inhnoが割込みハンドラ番号として正しくない場合（E_PAR）［NGKI3055］
-・inhnoがDEF_INHによって設定済みの場合（E_OBJ）［NGKI3063］
-・inhatrが無効の場合（E_RSATR）［NGKI3052］
+・inhnoが有効範囲外の場合（E_PAR）［NGKI3055］
+・inhatrが無効の場合（E_RSATR）［NGKI3052］［NGKI2957］［NGKI2959］
 　（TARGET_INHATR以外のビットがセットされている場合）
-	※ TAGET_INHATRは，ターゲット依存部で追加する割込みハンドラ属性
+	※ TARGET_INHATRは，ターゲット依存部で追加する割込みハンドラ属性
 ・カーネル管理外に固定されているinhnoに対して，inhatrにTA_NONKERNELが指
 　定されていない場合（E_RSATR）［NGKI3067］
 ・カーネル管理に固定されているinhnoに対して，inhatrにTA_NONKERNELが指定
 　されている場合（E_RSATR）［NGKI3068］
 ・inhnoに対応するintnoに対するCFG_INTがない場合（E_OBJ）［NGKI3062］
 	※ inhnoに対応するintnoがない場合には，このチェックを行わない
-#・inhnoに対応するintnoに対してCRE_ISRがある場合（E_OBJ）［NGKI3063］
-#	※ inhnoに対応するintnoがない場合には，このチェックを行わない
-#	→ このチェックは，割込みサービスルーチン側で行う
-・inhatrにTA_NONKERNELが指定されておらず，inhnoに対応するintnoに対して
-　CFG_INTで設定された割込み優先度がTMIN_INTPRIよりも小さい場合（E_OBJ）
-　［NGKI3065］
+・カーネル管理外の割込み（inhnoに対応するintnoに対してCFG_INTで設定さ
+　れた割込み優先度がTMIN_INTPRIよりも小さい場合）に対して，inhatrに
+　TA_NONKERNELが指定されていない場合（E_OBJ）［NGKI3065］
 	※ inhnoに対応するintnoがない場合には，このチェックを行わない
-・inhatrにTA_NONKERNELが指定されており，inhnoに対応するintnoに対して
-　CFG_INTで設定された割込み優先度がTMIN_INTPRI以上である場合（E_OBJ）
-　［NGKI3066］
+・カーネル管理の割込み（inhnoに対応するintnoに対してCFG_INTで設定され
+　た割込み優先度がTMIN_INTPRI以上である場合）に対して，inhatrに
+　TA_NONKERNELが指定されている場合（E_OBJ）［NGKI3066］
 	※ inhnoに対応するintnoがない場合には，このチェックを行わない
 
+＊必要であればターゲット依存部（TargetCheckDefInh）で検出するもの
+・ターゲット定義で割込みハンドラを定義できない場合（E_PAR）［NGKI3078］
+・inhatrが無効の場合（E_RSATR）［NGKI3052］［NGKI2959］
+	- ターゲット定義の割込みハンドラ属性が無効の場合
+
 ＊可能であればターゲット依存部で検出するもの［NGKI3080］
-・inthdrがプログラムの開始番地として正しくない場合（E_PAR）［NGKI3056］
+・inthdrがプログラムの先頭番地として正しくない場合（E_PAR）［NGKI3056］
+	- ターゲット依存の値（CHECK_FUNC_ALIGN）の倍数でない場合
+	- NULLの場合（CHECK_FUNC_NONNULLが定義されている場合）
+
+＊ここで検出する必要がないもの
+・inhnoに対応するintnoに対してCRE_ISRがある場合（E_OBJ）［NGKI3063］
+	※ inhnoに対応するintnoがない場合には，このチェックを行わない
+	→ このエラー条件は，割込みサービスルーチンに関するエラー条件の　
+	   NGKI3013の裏返しであり，どちらか片方で検出すればよいため，ここ
+	   では検出しない．
 
 4.7.3 割込み要求ラインに関する定義
 
@@ -1270,21 +1309,28 @@ const INTINIB _kernel_intinib_table[TNUM_CFG_INTNO] = {
 
 割込み要求ラインに関するエラー条件は次の通りである．
 
-＊パス2で検出するもの
-・intnoが割込み番号として正しくない場合（E_PAR）［NGKI2972］
+＊コンフィギュレータ本体が検出するもの
 ・intnoがCFG_INTによって設定済みの場合（E_OBJ）［NGKI2976］
-・intatrが無効の場合（E_RSATR）［NGKI2969］
+
+＊パス2で検出するもの
+・intnoが有効範囲外の場合（E_PAR）［NGKI2972］
+・intatrが無効の場合（E_RSATR）［NGKI2969］［NGKI2944］［NGKI2945］
 　（TA_ENAINT，TA_EDGE，TARGET_INTATR以外のビットがセットされている場合）
-	※ TAGET_INTATRは，ターゲット依存部で追加する割込み要求ライン属性
-・intpriがCFG_INTに対する割込み優先度として正しくない場合（E_PAR）［NGKI2973］
-・カーネル管理外に固定されているintnoに対して，intpriにTMIN_INTPRIより
-　も小さい値が指定されなかった場合（E_OBJ）［NGKI2983］
+	※ TARGET_INTATRは，ターゲット依存部で追加する割込み要求ライン属性
+・intpriが有効範囲外の場合（E_PAR）［NGKI2973］
+　（CFG_INTに対する割込み優先度として正しくない場合）
+・カーネル管理外に固定されているintnoに対して，intpriにTMIN_INTPRI以上
+　の値が指定された場合（E_OBJ）［NGKI2983］
 ・カーネル管理に固定されているintnoに対して，intpriにTMIN_INTPRIよりも
 　小さい値が指定された場合（E_OBJ）［NGKI2984］
 
-＊必要に応じてターゲット依存部で検出するもの［NGKI2986］
-・intatrが割込み属性として設定できない値の場合（E_RSATR）［NGKI2985］
-・intpriが割込み優先度として設定できない値の場合（E_PAR）［NGKI2985］
+＊必要であればターゲット依存部（TargetCheckCfgInt）で検出するもの
+・intatrが無効の場合（E_RSATR）［NGKI2969］［NGKI2945］
+	- ターゲット定義の割込みハンドラ属性が無効の場合
+・対象割込み要求ラインに対して，設定できない割込み要求ライン属性を
+　intatrに指定した場合（E_RSATR）［NGKI2985］
+・対象割込み要求ラインに対して，設定できない割込み優先度をintpriに指定
+　した場合（E_PAR）［NGKI2985］
 ・同一の割込み優先度しか設定できない割込み要求ラインに対して，異なる割
 　込み優先度を設定した場合（E_PAR）［NGKI2985］
 
@@ -1342,15 +1388,24 @@ const EXCINIB _kernel_excinib_table[TNUM_DEF_EXCNO] = {
 
 CPU例外ハンドラに関するエラー条件は次の通りである．
 
-＊パス2で検出するもの
-・excnoがCPU例外ハンドラ番号として正しくない場合（E_PAR）［NGKI3134］
+＊コンフィギュレータ本体が検出するもの
 ・excnoがDEF_EXCによって設定済みの場合（E_OBJ）［NGKI3141］
-・excatrが無効の場合（E_RSATR）［NGKI3131］
+
+＊パス2で検出するもの
+・excnoが有効範囲外の場合（E_PAR）［NGKI3134］
+　（CPU例外ハンドラ番号として正しくない場合）
+・excatrが無効の場合（E_RSATR）［NGKI3131］［NGKI5178］［NGKI3123］
 　（TARGET_EXCATR以外のビットがセットされている場合）
-	※ TAGET_EXCATRは，ターゲット依存部で追加するCPU例外ハンドラ属性
+	※ TARGET_EXCATRは，ターゲット依存部で追加するCPU例外ハンドラ属性
+
+＊必要であればターゲット依存部（TargetCheckDefExc）で検出するもの
+・excatrが無効の場合（E_RSATR）［NGKI3131］［NGKI3123］
+	- ターゲット定義のCPU例外ハンドラ属性が無効の場合
 
 ＊可能であればターゲット依存部で検出するもの［NGKI3149］
-・exchdrがプログラムの開始番地として正しくない場合（E_PAR）［NGKI3135］
+・exchdrがプログラムの先頭番地として正しくない場合（E_PAR）［NGKI3135］
+	- ターゲット依存の値（CHECK_FUNC_ALIGN）の倍数でない場合
+	- NULLの場合（CHECK_FUNC_NONNULLが定義されている場合）
 
 4.9 非タスクコンテキスト用のスタック領域に関する定義
 
@@ -1400,7 +1455,7 @@ istkがNULLでない場合には，非タスクコンテキスト用のスタッ
 
 DEF_ICSの有無によらず，次の定義を生成する．
 
-const SIZE		_kernel_istksz = TOPPERS_ISTKSZ;
+const size_t	_kernel_istksz = TOPPERS_ISTKSZ;
 STK_T *const	_kernel_istk = TOPPERS_ISTK;
 
 #ifdef TOPPERS_ISTKPT
@@ -1413,16 +1468,16 @@ STK_T *const	_kernel_istkpt = TOPPERS_ISTKPT(TOPPERS_ISTK, TOPPERS_ISTKSZ);
 
 ＊パス2で検出するもの
 ・静的API「DEF_ICS」が複数ある（E_OBJ）［NGKI3216］
-・istkszが0以下か，ターゲット定義の最小値（TARGET_MIN_ISTKSZ）よりも小
-　さい場合（E_PAR）［NGKI3254］
-・istkszがスタック領域のサイズとして正しくない場合（E_PAR）［NGKI3222］
+・istkszがターゲット定義の最小値（TARGET_MIN_ISTKSZ，未定義の場合は1）
+　よりも小さい場合（E_PAR）［NGKI3254］… (*1)と同様
+・istkszがターゲット定義の制約に合致しない場合（E_PAR）［NGKI3222］
 	- ターゲット依存の値（CHECK_STKSZ_ALIGN）の倍数でない場合
 	※ このエラーチェックは，istkがNULLでない場合にのみ行う
 
 ＊パス3で検出するもの
-・istkがスタック領域の先頭番地として正しくない場合（E_PAR）［NGKI3222］
+・istkがターゲット定義の制約に合致しない場合（E_PAR）［NGKI3222］
 	- ターゲット依存の値（CHECK_STACK_ALIGN）の倍数でない場合
-	- NULLの場合（ターゲット依存，CHECK_STACK_NONNULL）
+	- NULLの場合（CHECK_STACK_NONNULLが定義されている場合）
 
 4.10 タイムイベント管理に関する定義
 
@@ -1458,88 +1513,113 @@ _kernel_initialize_object(void)
 	_kernel_initialize_exception();
 }
 
-4.12 初期化ルーチンの実行関数の定義
+4.12 初期化ルーチンに関する定義
 
-システムコンフィギュレーションファイル中に含まれる初期化ルーチンを追加
-する静的API「ATT_INI」に対して，追加した初期化ルーチンを順に呼び出す関
-数を生成する．具体的には，
+初期化ルーチンを登録する静的API「ATT_INI」で登録した初期化ルーチンに関
+する定義を生成する．
+
+4.12.1 登録する初期化ルーチンの数
+
+登録する初期化ルーチンの数をマクロ定義するプリプロセッサディレクティブ
+（#define）を生成する．また，その値を持つ変数の定義を生成する．具体的
+には，次のような行を生成する．
+
+#define TNUM_INIRTN <登録する初期化ルーチンの数>
+const uint_t	_kernel_tnum_inirtn = TNUM_INIRTN;
+
+4.12.2 初期化ルーチンブロックテーブルの定義
+
+次の形式の初期化ルーチンブロックテーブルを生成する．
+
+const INIRTNB _kernel_inirtnb_table[TNUM_INIRTN] = {
+	<初期化ルーチン1の情報>,
+	<初期化ルーチン2の情報>,
+				……
+	<初期化ルーチンTNUM_INIRTNの情報>
+};
+
+初期化ルーチンの情報を生成する順序は，システムコンフィギュレーションファ
+イル中での静的APIの順序に一致させる．
+
+この中の初期化ルーチンの情報は，システムコンフィギュレーションファイル
+に含まれる
 
 	ATT_INI({ iniatr, exinf, inirtn });
 
-という静的APIに対して，
+という静的APIに対応して，次の形式とする（iniatrは使用されない）．
 
-	((INIRTN)(inirtn))((intptr_t)(exinf));
+	{ (INIRTN)(inirtn), (intptr_t)(exinf) }
 
-を呼び出す関数を，_kernel_call_inirtnという名前で生成する．初期化ルーチ
-ンを呼び出す順序は，システムコンフィギュレーションファイル中での静的
-APIの順序に一致させる．
+初期化ルーチンが1つも登録されなかった場合には，次のような行を生成する．
 
-例えば，
+	TOPPERS_EMPTY_LABEL(const INIRTNB, _kernel_inirtnb_table);
 
-	ATT_INI({ TA_NULL, 0, timer_initialize });
-	ATT_INI({ TA_NULL, CONSOLE_PORTID, serial_initialize });
-
-という2つの静的APIがこの順序で記述された時に生成する関数は次の通りであ
-る．
-
-void
-_kernel_call_inirtn(void)
-{
-	((INIRTN)(timer_initialize))((intptr_t)(0));
-	((INIRTN)(serial_initialize))((intptr_t)(CONSOLE_PORTID));
-}
-
-4.12.1 エラー条件
+4.12.3 エラー条件
 
 初期化ルーチンに関するエラー条件は次の通りである．
 
 ＊パス2で検出するもの
-・iniatrが無効の場合（E_RSATR）［NGKI3241］
+・iniatrが無効の場合（E_RSATR）［NGKI3241］［NGKI3202］［NGKI3203］
 　（TA_NULLでない場合）
 
-＊可能であればターゲット依存部で検出するもの［NGKI3246］
-・inirtnがプログラムの開始番地として正しくない場合（E_PAR）［NGKI3243］
+＊パス3で検出するもの
+・inirtnがプログラムの先頭番地として正しくない場合（E_PAR）［NGKI3243］
+	- ターゲット依存の値（CHECK_FUNC_ALIGN）の倍数でない場合
+	- NULLの場合（CHECK_FUNC_NONNULLが定義されている場合）
 
-4.13 終了処理ルーチンの実行関数の定義
+4.13 終了処理ルーチンに関する定義
 
-システムコンフィギュレーションファイル中に含まれる終了処理ルーチンを追
-加する静的API「ATT_TER」に対して，追加した終了処理ルーチンを順に呼び出
-す関数を生成する．具体的には，
+終了処理ルーチンを登録する静的API「ATT_TER」で登録した終了処理ルーチン
+に関する定義を生成する．
+
+4.13.1 登録する終了処理ルーチンの数
+
+登録する終了処理ルーチンの数をマクロ定義するプリプロセッサディレクティ
+ブ（#define）を生成する．また，その値を持つ変数の定義を生成する．具体
+的には，次のような行を生成する．
+
+#define TNUM_TERRTN <登録する終了処理ルーチンの数>
+const uint_t	_kernel_tnum_terrtn = TNUM_TERRTN;
+
+4.13.2 終了処理ルーチンブロックテーブルの定義
+
+次の形式の終了処理ルーチンブロックテーブルを生成する．
+
+const TERRTNB _kernel_terrtnb_table[TNUM_TERRTN] = {
+	<終了処理ルーチンTNUM_TERRTNの情報>,
+				……
+	<終了処理ルーチン2の情報>,
+	<終了処理ルーチン1の情報>
+};
+
+終了処理ルーチンの情報を生成する順序は，システムコンフィギュレーション
+ファイル中での静的APIの逆順に一致させる．
+
+この中の終了処理ルーチンの情報は，システムコンフィギュレーションファイ
+ルに含まれる
 
 	ATT_TER({ teratr, exinf, terrtn });
 
-という静的APIに対して，
+という静的APIに対応して，次の形式とする（teratrは使用されない）．
 
-	((TERRTN)(terrtn))((intptr_t)(exinf));
+	{ (TERRTN)(terrtn), (intptr_t)(exinf) }
 
-を呼び出す関数を，_kernel_call_terrtnという名前で生成する．終了処理ルー
-チンを呼び出す順序は，システムコンフィギュレーションファイル中での静的
-APIの逆順に一致させる．
-
-例えば，
-
-	ATT_TER({ TA_NULL, 0, timer_terminate });
-	ATT_TER({ TA_NULL, CONSOLE_PORTID, serial_terminate });
-
-という2つの静的APIがこの順序で記述された時に生成する関数は次の通りであ
+終了処理ルーチンが1つも登録されなかった場合には，次のような行を生成す
 る．
 
-void
-_kernel_call_terrtn(void)
-{
-	((TERRTN)(serial_terminate))((intptr_t)(CONSOLE_PORTID));
-	((TERRTN)(timer_terminate))((intptr_t)(0));
-}
+	TOPPERS_EMPTY_LABEL(const TERRTNB, _kernel_terrtnb_table);
 
-4.13.1 エラー条件
+4.13.3 エラー条件
 
 終了処理ルーチンに関するエラー条件は次の通りである．
 
 ＊パス2で検出するもの
-・teratrが無効の場合（E_RSATR）［NGKI3248］
+・teratrが無効の場合（E_RSATR）［NGKI3248］［NGKI3208］［NGKI3209］
 　（TA_NULLでない場合）
 
-＊可能であればターゲット依存部で検出するもの［NGKI3253］
-・terrtnがプログラムの開始番地として正しくない場合（E_PAR）［NGKI3250］
+＊パス3で検出するもの
+・terrtnがプログラムの先頭番地として正しくない場合（E_PAR）［NGKI3250］
+	- ターゲット依存の値（CHECK_FUNC_ALIGN）の倍数でない場合
+	- NULLの場合（CHECK_FUNC_NONNULLが定義されている場合）
 
 以上

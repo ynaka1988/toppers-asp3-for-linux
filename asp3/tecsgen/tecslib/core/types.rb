@@ -3,7 +3,7 @@
 #  TECS Generator
 #      Generator for TOPPERS Embedded Component System
 #
-#   Copyright (C) 2008-2015 by TOPPERS Project
+#   Copyright (C) 2008-2017 by TOPPERS Project
 #--  
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
 #   ア（本ソフトウェアを改変したものを含む．以下同じ）を使用・複製・改
@@ -34,7 +34,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 #  
-#   $Id: types.rb 2296 2015-11-29 11:57:33Z okuma-top $
+#   $Id: types.rb 2665 2017-07-24 08:59:28Z okuma-top $
 #++
 
 #= HasType: @type を内部に持つ型のためのモジュール
@@ -628,7 +628,7 @@ class IntType < Type
 end
 
 class FloatType < Type
-#  @bit_size::         32, 64, (80), -32, -64
+#  @bit_size::         32, 64, (80), -32, -64, -128
 
   def initialize( bit_size )
     super()
@@ -683,6 +683,8 @@ class FloatType < Type
       str = "#{str}float"
     when -64
       str = "#{str}double"
+    when -128
+      str = "#{str}long double"
     end
     return str
   end
@@ -733,6 +735,7 @@ class StructType < Type
 #  @b_has_pointer_member:: bool : メンバにポインタ型がある
 #  @b_has_sized_pointer_member:: bool : メンバにポインタ型がある
 #  @b_has_unsized_string_member:: bool : メンバにポインタ型がある
+#  @b_hasTag:: bool : タグがある
 #  @member_types_symbol:: Symbol : tag が無い時のみ設定 (それ以外では nil)
 
   @@structtype_current_stack = []
@@ -745,6 +748,11 @@ class StructType < Type
   def initialize( tag = nil )
     super()
     @tag = tag
+    if tag then
+      @b_hasTag = true
+    else
+      @b_hasTag = false
+    end
     @@structtype_current_sp += 1
     @@structtype_current_stack[@@structtype_current_sp] = self
     @b_has_pointer_member = false
@@ -917,16 +925,16 @@ class StructType < Type
   def get_type_str      # mikan struct get_type_str
     str = super
 
-    if @tag then
+    if @b_hasTag then
       # typedef struct tag StructType; の形式の場合
       # struct の本体は、別に生成される
-      return "#{str}struct #{@tag} "
+      return "#{str}struct #{@tag}"
 
     else
       # typedef struct { int a; } StructType; の形式の場合
-      str += "struct {\n"
+      str += "struct {"
       @members_decl.get_items.each{ |i|
-        str += sprintf( "    %-8s %s%s;\n", "#{i.get_type.get_type_str}", "#{i.get_name}", "#{i.get_type.get_type_str_post}" )
+        str += sprintf( "%s %s%s;", "#{i.get_type.get_type_str}", "#{i.get_name}", "#{i.get_type.get_type_str_post}" )
       }
       str += "} "
 
@@ -1266,6 +1274,15 @@ class ArrayType < Type
 
   def check_init( locale, ident, initializer, kind, attribute = nil )
     if ( initializer.instance_of?( Array ) ) then
+      # 要素数が指定されている場合、初期化要素数をチェック
+      if @subscript then
+        n_sub = @subscript.eval_const( nil )
+        if n_sub then
+          if initializer.length > n_sub then
+            cdl_error2( locale, "T9999 $1: too many initializer, $2 for $3" , ident, initializer.length, n_sub )
+          end
+        end
+      end
       index = 0
       initializer.each{ |i|
         @type.check_init( locale, "#{ident}[#{index}]", i, kind, attribute = nil )
@@ -1542,22 +1559,18 @@ end
 #==  DescriptorType クラス
 # 動的結合で渡すデスクリプタ型
 class DescriptorType < Type
-# @sinagure_nsp::NamespacePath
+  # @sinagure_nsp::NamespacePath
+
+  @@descriptors = {}
 
   def initialize( signature_nsp )
     @signature_nsp = signature_nsp
-    obj = Namespace.find signature_nsp
-    if ! obj.kind_of? Signature then
-      cdl_error( "T9999 '$1': not signature or not found", signature_nsp.to_s )
-    else
-      if obj.has_descriptor? then
-        cdl_error( "T9999 '$1': has Desicrptor in function parameter", signature_nsp.to_s )
-      end
-    end
+    # check_signature ##
+    @@descriptors[ self ] = false
   end
 
   def get_type_str
-    "Descriptor( #{@signature_nsp.to_s} )"
+    "Descriptor( #{@signature_nsp.get_global_name} )"
   end
 
   def get_type_str_post
@@ -1580,8 +1593,29 @@ class DescriptorType < Type
     end
   end
 
+  def self.check_signature
+    @@descriptors.each{ |desc, val|
+      if val != true then
+        desc.check_signature
+        @@descriptors[ desc ] = true
+      end
+    }
+  end
+  
+  def check_signature
+    # p "Desc #{@signature_nsp.to_s}"
+    obj = Namespace.find @signature_nsp
+    if ! obj.kind_of? Signature then
+      cdl_error( "T9999 '$1': not signature or not found", @signature_nsp.to_s )
+    else
+      if obj.has_descriptor? then
+       # cdl_error( "T9999 '$1': has Descriptor in function parameter", @signature_nsp.to_s )
+      end
+      # @signature_nsp = obj.get_namespace_path
+    end
+  end
+
   #== DescriptorType#
-  # 意味解析段階では nil が返される可能性に注意
   def get_signature
     Namespace.find @signature_nsp
   end

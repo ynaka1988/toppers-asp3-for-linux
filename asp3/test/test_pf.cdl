@@ -1,7 +1,7 @@
 /*
  *		テスト用プラットフォームのコンポーネント記述ファイル
  *
- *  $Id: test_pf.cdl 550 2016-01-17 04:16:26Z ertl-hiro $
+ *  $Id: test_pf.cdl 884 2018-02-02 02:08:44Z ertl-hiro $
  */
 
 /*
@@ -17,11 +17,26 @@ import("syssvc/tSysLog.cdl");
 import("syssvc/tSysLogAdapter.cdl");
 import("syssvc/tBanner.cdl");
 import("syssvc/tTestService.cdl");
+import("syssvc/tTestServiceAdapter.cdl");
 
 /*
  *  ターゲット依存部の取り込み
  */
 import("target.cdl");
+
+/*
+ *  システムログ機能のアダプタの組上げ記述
+ */
+cell tSysLogAdapter SysLogAdapter {
+	cSysLog = SysLog.eSysLog;
+};
+
+/*
+ *  テストプログラム用サービスのアダプタの組上げ記述
+ */
+cell tTestServiceAdapter TestServiceAdapter {
+	cTestService = TestService.eTestService;
+};
 
 /*
  *  システムログ機能の組上げ記述
@@ -33,14 +48,6 @@ cell tSysLog SysLog {
 									   	/* 低レベル出力すべき重要度 */
 	/* 低レベル出力との結合 */
 	cPutLog = PutLogTarget.ePutLog;
-};
-
-/*
- *  C言語で記述されたアプリケーションから，TECSベースのシステムログ機能
- *  を呼び出すためのアダプタの組上げ記述
- */
-cell tSysLogAdapter SysLogAdapter {
-	cSysLog = SysLog.eSysLog;
 };
 
 /*

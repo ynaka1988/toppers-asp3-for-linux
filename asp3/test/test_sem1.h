@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2008-2014 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2008-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_sem1.h 286 2014-11-29 07:51:11Z ertl-hiro $
+ *  $Id: test_sem1.h 737 2016-04-05 13:11:23Z ertl-hiro $
  */
 
 /* 
@@ -61,6 +61,14 @@
 #ifndef STACK_SIZE
 #define	STACK_SIZE		4096		/* タスクのスタックサイズ */
 #endif /* STACK_SIZE */
+
+#ifndef TEST_TIME_CP
+#define TEST_TIME_CP	50000U		/* チェックポイント到達情報の出力時間 */
+#endif /* TEST_TIME_CP */
+
+#ifndef TEST_TIME_PROC
+#define TEST_TIME_PROC	1000U		/* チェックポイントを通らない場合の時間 */
+#endif /* TEST_TIME_PROC */
 
 /*
  *  関数のプロトタイプ宣言

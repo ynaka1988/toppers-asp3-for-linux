@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tTerminateRoutine.c 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tTerminateRoutine.c 911 2018-03-07 00:24:06Z ertl-hiro $
  */
 
 #include "tTerminateRoutine_tecsgen.h"
@@ -45,8 +45,8 @@
 /*
  *  終了処理ルーチン本体の呼出し
  */
-
-void  tTerminateRoutine_start(intptr_t exinf)
+void
+tTerminateRoutine_start(intptr_t exinf)
 {
 	CELLCB	*p_cellcb = (CELLCB *) exinf;
 

@@ -1,5 +1,5 @@
 PACKAGE asp3_target_macosx_xcode
-VERSION 3.0.0
+VERSION 3.5.0
 
 E_PACKAGE
 MANIFEST
@@ -31,4 +31,4 @@ target_unrename.h
 target_user.txt
 tecs_termios.h
 
-INCLUDE ../test_hrt_macosx_xcode/MANIFEST
+INCLUDE ../simtimer_macosx_xcode/MANIFEST

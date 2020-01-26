@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: cyclic.c 451 2015-08-14 15:29:07Z ertl-hiro $
+ *  $Id: cyclic.c 1021 2018-10-26 05:47:40Z ertl-hiro $
  */
 
 /*
@@ -173,19 +173,25 @@ acre_cyc(const T_CCYC *pk_ccyc)
 {
 	CYCCB		*p_cyccb;
 	CYCINIB		*p_cycinib;
+	ATR			cycatr;
+	RELTIM		cyctim, cycphs;
 	T_NFYINFO	*p_nfyinfo;
-	ER			ercd, rercd;
+	ER			ercd;
 
 	LOG_ACRE_CYC_ENTER(pk_ccyc);
 	CHECK_TSKCTX_UNL();
-	CHECK_RSATR(pk_ccyc->cycatr, TA_STA);
-	rercd = check_nfyinfo(&(pk_ccyc->nfyinfo));
-	if (rercd != E_OK) {
-		ercd = rercd;
+
+	cycatr = pk_ccyc->cycatr;
+	cyctim = pk_ccyc->cyctim;
+	cycphs = pk_ccyc->cycphs;
+
+	CHECK_VALIDATR(cycatr, TA_STA);
+	ercd = check_nfyinfo(&(pk_ccyc->nfyinfo));
+	if (ercd != E_OK) {
 		goto error_exit;
 	}
-	CHECK_PAR(0 < pk_ccyc->cyctim && pk_ccyc->cyctim <= TMAX_RELTIM);
-	CHECK_PAR(0 <= pk_ccyc->cycphs && pk_ccyc->cycphs <= TMAX_RELTIM);
+	CHECK_PAR(0 < cyctim && cyctim <= TMAX_RELTIM);
+	CHECK_PAR(0 <= cycphs && cycphs <= TMAX_RELTIM);
 
 	lock_cpu();
 	if (tnum_cyc == 0 || queue_empty(&free_cyccb)) {
@@ -195,7 +201,7 @@ acre_cyc(const T_CCYC *pk_ccyc)
 		p_cyccb = ((CYCCB *)(((char *) queue_delete_next(&free_cyccb))
 												- offsetof(CYCCB, tmevtb)));
 		p_cycinib = (CYCINIB *)(p_cyccb->p_cycinib);
-		p_cycinib->cycatr = pk_ccyc->cycatr;
+		p_cycinib->cycatr = cycatr;
 		if (pk_ccyc->nfyinfo.nfymode == TNFY_HANDLER) {
 			p_cycinib->exinf = pk_ccyc->nfyinfo.nfy.handler.exinf;
 			p_cycinib->nfyhdr = (NFYHDR)(pk_ccyc->nfyinfo.nfy.handler.tmehdr);
@@ -206,12 +212,13 @@ acre_cyc(const T_CCYC *pk_ccyc)
 			p_cycinib->exinf = (intptr_t) p_nfyinfo;
 			p_cycinib->nfyhdr = notify_handler;
 		}
-		p_cycinib->cyctim = pk_ccyc->cyctim;
-		p_cycinib->cycphs = pk_ccyc->cycphs;
+		p_cycinib->cyctim = cyctim;
+		p_cycinib->cycphs = cycphs;
 
 		if ((p_cyccb->p_cycinib->cycatr & TA_STA) != 0U) {
 			p_cyccb->cycsta = true;
-			tmevtb_enqueue(&(p_cyccb->tmevtb), p_cyccb->p_cycinib->cycphs);
+			tmevtb_enqueue_reltim(&(p_cyccb->tmevtb),
+										p_cyccb->p_cycinib->cycphs);
 		}
 		else {
 			p_cyccb->cycsta = false;
@@ -301,7 +308,7 @@ sta_cyc(ID cycid)
 		/*
 		 *  初回の起動のためのタイムイベントを登録する［ASPD1036］．
 		 */
-		tmevtb_enqueue(&(p_cyccb->tmevtb), p_cyccb->p_cycinib->cycphs);
+		tmevtb_enqueue_reltim(&(p_cyccb->tmevtb), p_cyccb->p_cycinib->cycphs);
 		ercd = E_OK;
 	}
 	unlock_cpu();
@@ -404,6 +411,9 @@ call_cyclic(CYCCB *p_cyccb)
 
 	/*
 	 *  通知ハンドラを，CPUロック解除状態で呼び出す．
+	 *
+	 *  周期通知の生成／削除はタスクからしか行えないため，周期通知初期
+	 *  化ブロックをCPUロック解除状態で参照しても問題ない．
 	 */
 	unlock_cpu();
 

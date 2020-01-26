@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2014-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2014-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_tmevt1.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_tmevt1.c 738 2016-04-05 14:19:24Z ertl-hiro $
  */
 
 /* 
@@ -61,19 +61,19 @@
  * 【テストシーケンス】
  *
  *	== TASK1（優先度：中）==
- *	1:	sta_alm(ALM1, ALM1_RELTIM)
+ *	1:	sta_alm(ALM1, TEST_TIME_PROC) ... ALM1-1が実行開始するまで
  *		DO(prev_lefttim = UINT32_MAX)
  *		DO(wait_alarm1(&alarm1_flag1))
  *	== ALM1-1（1回目）==
  *	2:	DO(alarm1_flag1 = true)
  *		RETURN
  *	== TASK1（続き）==
- *	3:	sta_alm(ALM1, ALM1_RELTIM)
+ *	3:	sta_alm(ALM1, TEST_TIME_PROC) ... ALM1-2が実行開始するまで
  *		DO(prev_lefttim = UINT32_MAX)
  *		DO(wait_alarm1(&alarm1_flag2))
  *	== ALM1-2（2回目）==
  *	4:	DO(alarm1_flag2 = true)
- *	5:	sta_alm(ALM1, ALM1_RELTIM)
+ *	5:	sta_alm(ALM1, TEST_TIME_CP) ... ALM1-3が実行開始するまで
  *		DO(prev_lefttim = UINT32_MAX)
  *		DO(skip_check = true)
  *		RETURN
@@ -83,37 +83,37 @@
  *	7:	DO(alarm1_flag3 = true)
  *		RETURN
  *	== TASK1（続き）==
- *	8:	sta_alm(ALM1, ALM1_RELTIM * 4)
+ *	8:	sta_alm(ALM1, 3 * TEST_TIME_CP) ... ALM1-4が実行開始するまで
  *		DO(prev_lefttim = UINT32_MAX)
  *		DO(refer_alarm1())
- *  9:	dly_tsk(ALM1_RELTIM)
- *		DO(prev_lefttim -= ALM1_RELTIM)
+ *  9:	dly_tsk(TEST_TIME_CP) ... どのような時間でも良い
+ *		DO(prev_lefttim -= TEST_TIME_CP)
  *		DO(refer_alarm1())
- *  10:	adj_tim(ALM1_RELTIM)
+ *  10:	adj_tim(TEST_TIME_CP)
  *		DO(wait_alarm1(&alarm1_flag4))
  *	== ALM1-4（4回目）==
  *	11:	DO(alarm1_flag4 = true)
  *		RETURN
  *	== TASK1（続き）==
- *	12:	sta_alm(ALM1, ALM1_RELTIM * 4)
+ *	12:	sta_alm(ALM1, 4 * TEST_TIME_CP) ... ALM1-5が実行開始するまで
  *		DO(prev_lefttim = UINT32_MAX)
  *		DO(refer_alarm1())
- *  13:	dly_tsk(ALM1_RELTIM)
- *		DO(prev_lefttim -= ALM1_RELTIM)
+ *  13:	dly_tsk(TEST_TIME_CP) ... どのような時間でも良い
+ *		DO(prev_lefttim -= TEST_TIME_CP)
  *		DO(refer_alarm1())
- *  14:	adj_tim(-ALM1_RELTIM)
- *		DO(prev_lefttim += ALM1_RELTIM)
+ *  14:	adj_tim(-TEST_TIME_CP)
+ *		DO(prev_lefttim += TEST_TIME_CP)
  *	15:	DO(wait_alarm1(&alarm1_flag5))
  *	== ALM1-5（5回目）==
  *	16:	DO(alarm1_flag5 = true)
  *		RETURN
  *	== TASK1（続き）==
- *	17:	sta_alm(ALM1, ALM1_RELTIM * 6)
- *		sta_alm(ALM2, ALM1_RELTIM * 4)
+ *	17:	sta_alm(ALM1, 4 * TEST_TIME_CP) ... ALM1-6が実行開始するまで
+ *		sta_alm(ALM2, 3 * TEST_TIME_CP) ... stp_almで停止するまで
  *		DO(prev_lefttim = UINT32_MAX)
  *		DO(refer_alarm1())
- *  18:	dly_tsk(ALM1_RELTIM)
- *		DO(prev_lefttim -= ALM1_RELTIM)
+ *  18:	dly_tsk(TEST_TIME_CP) ... どのような時間でも良い
+ *		DO(prev_lefttim -= TEST_TIME_CP)
  *		DO(refer_alarm1())
  *	19:	stp_alm(ALM2)
  *		ref_alm(ALM2, &ralm)
@@ -124,9 +124,9 @@
  *	21:	DO(alarm1_flag6 = true)
  *		RETURN
  *	== TASK1（続き）==
- *	22:	sta_alm(ALM1, ALM1_RELTIM * 6)
- *		sta_alm(ALM2, ALM1_RELTIM * 4)
- *		sta_alm(ALM3, ALM1_RELTIM)
+ *	22:	sta_alm(ALM1, 3 * TEST_TIME_CP) ... ALM1-7が実行開始するまで
+ *		sta_alm(ALM2, 2 * TEST_TIME_CP) ... stp_almで停止するまで
+ *		sta_alm(ALM3, TEST_TIME_CP) ... ALM3-1が実行開始するまで
  *		DO(prev_lefttim = UINT32_MAX)
  *	23:	DO(wait_alarm1(&alarm1_flag7))
  *	== ALM3-1（1回目）==
@@ -241,7 +241,7 @@ alarm1_handler(intptr_t exinf)
 		alarm1_flag2 = true;
 
 		check_point(5);
-		ercd = sta_alm(ALM1, ALM1_RELTIM);
+		ercd = sta_alm(ALM1, TEST_TIME_CP);
 		check_ercd(ercd, E_OK);
 
 		prev_lefttim = UINT32_MAX;
@@ -330,7 +330,7 @@ task1(intptr_t exinf)
 	test_start(__FILE__);
 
 	check_point(1);
-	ercd = sta_alm(ALM1, ALM1_RELTIM);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	prev_lefttim = UINT32_MAX;
@@ -338,7 +338,7 @@ task1(intptr_t exinf)
 	wait_alarm1(&alarm1_flag1);
 
 	check_point(3);
-	ercd = sta_alm(ALM1, ALM1_RELTIM);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	prev_lefttim = UINT32_MAX;
@@ -349,7 +349,7 @@ task1(intptr_t exinf)
 	wait_alarm1(&alarm1_flag3);
 
 	check_point(8);
-	ercd = sta_alm(ALM1, ALM1_RELTIM * 4);
+	ercd = sta_alm(ALM1, 3 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	prev_lefttim = UINT32_MAX;
@@ -357,21 +357,21 @@ task1(intptr_t exinf)
 	refer_alarm1();
 
 	check_point(9);
-	ercd = dly_tsk(ALM1_RELTIM);
+	ercd = dly_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	prev_lefttim -= ALM1_RELTIM;
+	prev_lefttim -= TEST_TIME_CP;
 
 	refer_alarm1();
 
 	check_point(10);
-	ercd = adj_tim(ALM1_RELTIM);
+	ercd = adj_tim(TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	wait_alarm1(&alarm1_flag4);
 
 	check_point(12);
-	ercd = sta_alm(ALM1, ALM1_RELTIM * 4);
+	ercd = sta_alm(ALM1, 4 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	prev_lefttim = UINT32_MAX;
@@ -379,27 +379,27 @@ task1(intptr_t exinf)
 	refer_alarm1();
 
 	check_point(13);
-	ercd = dly_tsk(ALM1_RELTIM);
+	ercd = dly_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	prev_lefttim -= ALM1_RELTIM;
+	prev_lefttim -= TEST_TIME_CP;
 
 	refer_alarm1();
 
 	check_point(14);
-	ercd = adj_tim(-ALM1_RELTIM);
+	ercd = adj_tim(-TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	prev_lefttim += ALM1_RELTIM;
+	prev_lefttim += TEST_TIME_CP;
 
 	check_point(15);
 	wait_alarm1(&alarm1_flag5);
 
 	check_point(17);
-	ercd = sta_alm(ALM1, ALM1_RELTIM * 6);
+	ercd = sta_alm(ALM1, 4 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	ercd = sta_alm(ALM2, ALM1_RELTIM * 4);
+	ercd = sta_alm(ALM2, 3 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	prev_lefttim = UINT32_MAX;
@@ -407,10 +407,10 @@ task1(intptr_t exinf)
 	refer_alarm1();
 
 	check_point(18);
-	ercd = dly_tsk(ALM1_RELTIM);
+	ercd = dly_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	prev_lefttim -= ALM1_RELTIM;
+	prev_lefttim -= TEST_TIME_CP;
 
 	refer_alarm1();
 
@@ -429,13 +429,13 @@ task1(intptr_t exinf)
 	wait_alarm1(&alarm1_flag6);
 
 	check_point(22);
-	ercd = sta_alm(ALM1, ALM1_RELTIM * 6);
+	ercd = sta_alm(ALM1, 3 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	ercd = sta_alm(ALM2, ALM1_RELTIM * 4);
+	ercd = sta_alm(ALM2, 2 * TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
-	ercd = sta_alm(ALM3, ALM1_RELTIM);
+	ercd = sta_alm(ALM3, TEST_TIME_CP);
 	check_ercd(ercd, E_OK);
 
 	prev_lefttim = UINT32_MAX;

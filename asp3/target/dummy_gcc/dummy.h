@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: dummy.h 526 2016-01-14 11:43:26Z ertl-hiro $
+ *  $Id: dummy.h 1239 2019-07-10 06:12:43Z ertl-hiro $
  */
 
 /*
@@ -48,8 +48,8 @@
 /*
  *  割込み番号（intno）の定義
  */
-#define TINTNO_HRT		0		/* 高分解能タイマ */
-#define TINTNO_OVRTIMER	1		/* オーバランタイマ */
-#define TINTNO_SIO		2		/* SIOポート */
+#define TINTNO_HRT			0U		/* 高分解能タイマ */
+#define TINTNO_OVRTIMER		1U		/* オーバランタイマ */
+#define TINTNO_SIO			2U		/* SIOポート */
 
 #endif /* TOPPERS_DUMMY_H */

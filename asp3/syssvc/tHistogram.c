@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2006-2016 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2006-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tHistogram.c 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tHistogram.c 952 2018-04-28 12:08:50Z ertl-hiro $
  */
 
 /*
@@ -42,14 +42,12 @@
  */
 
 #include "tHistogram_tecsgen.h"
-#define syslog_write	cSysLog_write
 #include <t_syslog.h>
-#include <log_output.h>
 
 /* 
  *  実行時間分布計測の初期化（受け口関数）
  */
-void
+ER
 eHistogram_initialize(CELLIDX idx)
 {
 	CELLCB	*p_cellcb = GET_CELLCB(idx);
@@ -60,24 +58,26 @@ eHistogram_initialize(CELLIDX idx)
 	}
 	VAR_over = 0U;
 	VAR_under = 0U;
+	return(E_OK);
 }
 
 /*
  *  実行時間計測の開始（受け口関数）
  */
-void
+ER
 eHistogram_beginMeasure(CELLIDX idx)
 {
 	CELLCB	*p_cellcb = GET_CELLCB(idx);
 
 	HIST_BM_HOOK();
 	HIST_GET_TIM(&VAR_begin_time);
+	return(E_OK);
 }
 
 /*
  *  実行時間計測の終了（受け口関数）
  */
-void
+ER
 eHistogram_endMeasure(CELLIDX idx)
 {
 	CELLCB		*p_cellcb = GET_CELLCB(idx);
@@ -102,12 +102,13 @@ eHistogram_endMeasure(CELLIDX idx)
 	else {
 		VAR_under++;
 	}
+	return(E_OK);
 }
 
 /*
  *  実行時間分布計測の表示（受け口関数）
  */
-void
+ER
 eHistogram_print(CELLIDX idx)
 {
 	CELLCB	*p_cellcb = GET_CELLCB(idx);
@@ -124,4 +125,5 @@ eHistogram_print(CELLIDX idx)
 	if (VAR_under > 0) {
 		syslog_1(LOG_NOTICE, "> INT_MAX : %d", VAR_under);
 	}
+	return(E_OK);
 }

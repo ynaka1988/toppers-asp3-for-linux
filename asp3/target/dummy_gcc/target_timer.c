@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_timer.c 458 2015-08-21 14:59:09Z ertl-hiro $
+ *  $Id: target_timer.c 1009 2018-08-25 14:36:59Z ertl-hiro $
  */
 
 /*
@@ -59,31 +59,6 @@ target_hrt_initialize(intptr_t exinf)
  */
 void
 target_hrt_terminate(intptr_t exinf)
-{
-}
-
-/*
- *  高分解能タイマの現在のカウント値の読出し
- */
-HRTCNT
-target_hrt_get_current(void)
-{
-	return(0U);
-}
-
-/*
- *  高分解能タイマへの割込みタイミングの設定
- */
-void
-target_hrt_set_event(HRTCNT hrtcnt)
-{
-}
-
-/*
- *  高分解能タイマ割込みの要求
- */
-void
-target_hrt_raise_event(void)
 {
 }
 
@@ -112,32 +87,6 @@ target_ovrtimer_initialize(intptr_t exinf)
 void
 target_ovrtimer_terminate(intptr_t exinf)
 {
-}
-
-/*
- *  オーバランタイマの動作開始
- */
-void
-target_ovrtimer_start(PRCTIM ovrtim)
-{
-}
-
-/*
- *  オーバランタイマの停止
- */
-PRCTIM
-target_ovrtimer_stop(void)
-{
-	return(0U);
-}
-
-/*
- *  オーバランタイマの現在値の読出し
- */
-PRCTIM
-target_ovrtimer_get_current(void)
-{
-	return(0U);
 }
 
 /*

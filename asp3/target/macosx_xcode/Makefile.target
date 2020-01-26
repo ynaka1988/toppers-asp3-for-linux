@@ -1,7 +1,7 @@
 #
 #		Makefile のターゲット依存部（Mac OS X用）
 #
-#  $Id: Makefile.target 572 2016-02-01 14:40:09Z ertl-hiro $
+#  $Id: Makefile.target 1051 2018-11-19 14:00:52Z ertl-hiro $
 #
 
 #
@@ -33,11 +33,6 @@ OBJCOPY = gobjcopy
 OBJDUMP = gobjdump
 
 #
-#  offset.hは使用しない
-#
-OMIT_OFFSET_H = true
-
-#
 #  コンパイルオプション
 #
 #  カーネルを関数単位でコンパイルする時には，未使用関数の警告を抑止する．
@@ -63,11 +58,3 @@ SYSSVC_COBJS := $(SYSSVC_COBJS)
 #  コンフィギュレータ関係の変数の定義
 #
 CFG_TABS := $(CFG_TABS) --symval-table $(TARGETDIR)/target_sym.def
-
-#
-#  トレースログ記録のサンプルコードに関する定義
-#
-ifdef ENABLE_TRACE
-	COPTS := $(COPTS) -DTOPPERS_ENABLE_TRACE
-	SYSSVC_DIRS := $(SYSSVC_DIRS) $(SRCDIR)/arch/tracelog
-endif

@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tMutex_inline.h 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tMutex_inline.h 864 2018-01-04 07:12:31Z ertl-hiro $
  */
 
 #ifndef TOPPERS_TMUTEX_INLINE_H
@@ -70,7 +70,7 @@ Inline ER
 eMutex_lockTimeout(CELLIDX idx, TMO timeout)
 {
 	CELLCB	*p_cellcb = GET_CELLCB(idx);
-	return(ploc_mtx(ATTR_id, timeout));
+	return(tloc_mtx(ATTR_id, timeout));
 }
 
 /*

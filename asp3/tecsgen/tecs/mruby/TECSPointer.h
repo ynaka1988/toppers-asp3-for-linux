@@ -32,11 +32,13 @@
  *   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *   の責任を負わない．
  *  
- *   $Id: TECSPointer.h 2227 2015-08-30 12:06:24Z okuma-top $ 
+ *   $Id: TECSPointer.h 2637 2017-05-08 10:30:59Z okuma-top $ 
  */
 
 #ifndef TECSPointer_h__
 #define TECSPointer_h__
+
+#ifndef TECSGEN
 
 #include <string.h>
 #include <stdint.h>
@@ -101,8 +103,8 @@ POINTER_BODY( SChar,  char_t )		/* struct SCharPointerBody */
 	VALCHECK_MRB_ ## Type( mrb_state *mrb, type val )					\
 	{																	\
 		if( sizeof( type ) > sizeof( mrb_int ) ){						\
-			if( val >= (((type)1) << (sizeof(mrb_int)*8-1))				\
-				|| val < -(((type)1) << (sizeof(mrb_int)*8-1)) )		\
+			if( val > TYPE ## _MAX				\
+				|| val < TYPE ## _MIN )		\
 				/* '=' unecessary for negative value	*/				\
 				/* ignore warning on int32_t */							\
 				mrb_raise(mrb, E_ARGUMENT_ERROR, "too large or too small for mrb_int"); \
@@ -125,7 +127,7 @@ POINTER_BODY( SChar,  char_t )		/* struct SCharPointerBody */
 	VALCHECK_MRB_ ## Type( mrb_state *mrb, type val )					\
 	{																	\
 		if( sizeof( type ) > sizeof( mrb_int ) ){						\
-			if( val >= (((type)1) << (sizeof(mrb_int)*8)))				\
+      if( val > TYPE ## _MAX )                        \
 				/* '=' unecessary for negative value	*/				\
 				/* ignore warning on int32_t */							\
 				mrb_raise(mrb, E_ARGUMENT_ERROR, "too large or too small for mrb_int"); \
@@ -147,13 +149,13 @@ VALCHECK_MRB_INT( Int8, INT8, int8_t )
 VALCHECK_INT( Int16, INT16, int16_t )
 VALCHECK_MRB_INT( Int16, INT16, int16_t )
 VALCHECK_UINT( UInt8, UINT8, uint8_t )
-#define	VALCHECK_MRB_UInt8
+#define	VALCHECK_MRB_UInt8(mrb,val)
 VALCHECK_UINT( UInt16, UINT16, uint16_t )
-#define	VALCHECK_MRB_UInt16
+#define	VALCHECK_MRB_UInt16(mrb,val)
 VALCHECK_INT( Int32, INT32, int32_t )
-#define VALCHECK_MRB_Int32
+#define VALCHECK_MRB_Int32(mrb,val)
 VALCHECK_UINT( UInt32, UINT32, uint32_t )
-#define VALCHECK_MRB_UInt32
+#define VALCHECK_MRB_UInt32(mrb,val)
 
 VALCHECK_INT( Int64, INT64, int64_t )
 VALCHECK_UINT( UInt64, UINT64, uint64_t )
@@ -162,8 +164,8 @@ VALCHECK_UINT( UInt64, UINT64, uint64_t )
 VALCHECK_MRB_INT( Int64, INT64, int64_t )
 VALCHECK_MRB_UINT( UInt64, UINT64, uint64_t )
 #else
-#define VALCHECK_MRB_Int64      // 範囲チェックが無意味であるため、警告が出るのを回避する
-#define VALCHECK_MRB_UInt64      // 範囲チェックが無意味であるため、警告が出るのを回避する
+#define VALCHECK_MRB_Int64(mrb,val)      // 範囲チェックが無意味であるため、警告が出るのを回避する
+#define VALCHECK_MRB_UInt64(mrb,val)      // 範囲チェックが無意味であるため、警告が出るのを回避する
 #endif
 
 #ifndef TECS_NO_VAL_CHECK
@@ -546,13 +548,13 @@ CHECK_AND_GET_POINTER_MOD_PROTO( UChar,  uint8_t );	/* UChar pointer */
 		a = mrb_define_class_under(mrb, TECS, #Type "Pointer", mrb->object_class); \
 		MRB_SET_INSTANCE_TT(a, MRB_TT_DATA);							\
 																		\
-		mrb_define_method(mrb, a, "initialize",      Type ## Pointer_initialize,   ARGS_REQ(1)); \
-		mrb_define_method(mrb, a, "[]",              Type ## Pointer_aget,         ARGS_REQ(1)); \
-		mrb_define_method(mrb, a, "value",           Type ## Pointer_get_val,      ARGS_NONE()); \
-		mrb_define_method(mrb, a, "[]=",             Type ## Pointer_aset,         ARGS_REQ(2)); \
-		mrb_define_method(mrb, a, "value=",          Type ## Pointer_set_val,      ARGS_REQ(1)); \
-		mrb_define_method(mrb, a, "size",            Type ## Pointer_size,         ARGS_NONE()); \
-		mrb_define_method(mrb, a, "length",          Type ## Pointer_size,         ARGS_NONE()); \
+		mrb_define_method(mrb, a, "initialize",      Type ## Pointer_initialize,   MRB_ARGS_REQ(1)); \
+		mrb_define_method(mrb, a, "[]",              Type ## Pointer_aget,         MRB_ARGS_REQ(1)); \
+		mrb_define_method(mrb, a, "value",           Type ## Pointer_get_val,      MRB_ARGS_NONE()); \
+		mrb_define_method(mrb, a, "[]=",             Type ## Pointer_aset,         MRB_ARGS_REQ(2)); \
+		mrb_define_method(mrb, a, "value=",          Type ## Pointer_set_val,      MRB_ARGS_REQ(1)); \
+		mrb_define_method(mrb, a, "size",            Type ## Pointer_size,         MRB_ARGS_NONE()); \
+		mrb_define_method(mrb, a, "length",          Type ## Pointer_size,         MRB_ARGS_NONE()); \
 		return	a;														\
 	}
 
@@ -580,6 +582,17 @@ CharPointer_from_s( mrb_state *mrb, mrb_value self )
 
 /* Initialize TECSPointer classes */
 void	init_TECSPointer( mrb_state *mrb, struct RClass *TECS );
+
+#else /*TECSGEN */
+
+#define GET_SET_BOOL( Type, type )
+#define GET_SET_CHAR( Type, type )
+#define GET_SET_INT( Type, type )
+#define GET_SET_FLOAT( Type, type )
+#define POINTER_CLASS( Type, type )
+#define CHECK_AND_GET_POINTER( Type, type )
+
+#endif /*TECSGEN */
 
 #endif /* TECSPointer_h__ */
 

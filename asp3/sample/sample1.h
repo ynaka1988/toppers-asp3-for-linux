@@ -5,7 +5,7 @@
  *
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2004-2014 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2004-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  *
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  *
- *  $Id: sample1.h 286 2014-11-29 07:51:11Z ertl-hiro $
+ *  $Id: sample1.h 705 2016-03-29 14:16:41Z ertl-hiro $
  */
 
 /*
@@ -87,6 +87,9 @@
 extern void	task(intptr_t exinf);
 extern void	main_task(intptr_t exinf);
 extern void exc_task(intptr_t exinf);
+#ifdef INTNO1
+extern void intno1_isr(intptr_t exinf);
+#endif /* INTNO1 */
 #ifdef CPUEXC1
 extern void	cpuexc_handler(void *p_excinf);
 #endif /* CPUEXC1 */

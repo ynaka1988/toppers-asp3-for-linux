@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2009-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2009-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_mutex8.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_mutex8.c 882 2018-02-01 09:55:37Z ertl-hiro $
  */
 
 /* 
@@ -147,7 +147,6 @@
  * 【テストシーケンス】
  *
  *	== TASK1（優先度：中）==
- *		call(set_bit_func(bit_mutex))
  *	1:	act_tsk(TASK4)
  *	2:	act_tsk(TASK5)
  *	//		高：TASK5，中：TASK1，低：TASK4
@@ -204,7 +203,7 @@
  *	27:	wup_tsk(TASK5)
  *	== TASK5（続き）==
  *	28:	loc_mtx(MTX2)
- *	29:	tslp_tsk(10000U) -> E_TMOUT
+ *	29:	tslp_tsk(3 * TEST_TIME_CP) -> E_TMOUT ... TASK5が実行再開するまで
  *	== TASK1（続き）==
  *	30:	wup_tsk(TASK4)
  *	31:	loc_mtx(MTX2)
@@ -233,7 +232,7 @@
  *	//		高：TASK5，中：TASK1，低：TASK4，MTX3：TASK1
  *	== TASK5（続き）==
  *	41:	loc_mtx(MTX2)
- *	42:	tslp_tsk(10000U) -> E_TMOUT
+ *	42:	tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK5が実行再開するまで
  *	== TASK1（続き）==
  *	43:	loc_mtx(MTX2)
  *	== TASK4（続き）==
@@ -264,7 +263,7 @@
  *	//		高：TASK5，中：TASK1，MTX1：TASK1
  *	== TASK5（続き）==
  *	55:	loc_mtx(MTX2)
- *	56:	tslp_tsk(10000U) -> E_TMOUT
+ *	56:	tslp_tsk(6 * TEST_TIME_CP) -> E_TMOUT ... TASK5が実行再開するまで
  *	//		中：TASK1，MTX1：TASK1，MTX2：TASK5
  *	== TASK1（続き）==
  *	57:	wup_tsk(TASK2)
@@ -333,8 +332,6 @@
 #include "kernel_cfg.h"
 #include "test_mutex8.h"
 
-extern ER	bit_mutex(void);
-
 /* DO NOT DELETE THIS LINE -- gentest depends on it. */
 
 void
@@ -343,8 +340,6 @@ task1(intptr_t exinf)
 	ER_UINT	ercd;
 
 	test_start(__FILE__);
-
-	set_bit_func(bit_mutex);
 
 	check_point(1);
 	ercd = act_tsk(TASK4);
@@ -635,7 +630,7 @@ task5(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(29);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(3 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(33);
@@ -655,7 +650,7 @@ task5(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(42);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(45);
@@ -675,7 +670,7 @@ task5(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(56);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(6 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(63);

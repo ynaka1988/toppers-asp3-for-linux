@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: alarm.c 451 2015-08-14 15:29:07Z ertl-hiro $
+ *  $Id: alarm.c 1021 2018-10-26 05:47:40Z ertl-hiro $
  */
 
 /*
@@ -162,15 +162,18 @@ acre_alm(const T_CALM *pk_calm)
 {
 	ALMCB		*p_almcb;
 	ALMINIB		*p_alminib;
+	ATR			almatr;
 	T_NFYINFO	*p_nfyinfo;
-	ER			ercd, rercd;
+	ER			ercd;
 
 	LOG_ACRE_ALM_ENTER(pk_calm);
 	CHECK_TSKCTX_UNL();
-	CHECK_RSATR(pk_calm->almatr, TA_NULL);
-	rercd = check_nfyinfo(&(pk_calm->nfyinfo));
-	if (rercd != E_OK) {
-		ercd = rercd;
+
+	almatr = pk_calm->almatr;
+
+	CHECK_VALIDATR(almatr, TA_NULL);
+	ercd = check_nfyinfo(&(pk_calm->nfyinfo));
+	if (ercd != E_OK) {
 		goto error_exit;
 	}
 
@@ -182,7 +185,7 @@ acre_alm(const T_CALM *pk_calm)
 		p_almcb = ((ALMCB *)(((char *) queue_delete_next(&free_almcb))
 												- offsetof(ALMCB, tmevtb)));
 		p_alminib = (ALMINIB *)(p_almcb->p_alminib);
-		p_alminib->almatr = pk_calm->almatr;
+		p_alminib->almatr = almatr;
 		if (pk_calm->nfyinfo.nfymode == TNFY_HANDLER) {
 			p_alminib->exinf = pk_calm->nfyinfo.nfy.handler.exinf;
 			p_alminib->nfyhdr = (NFYHDR)(pk_calm->nfyinfo.nfy.handler.tmehdr);
@@ -277,7 +280,7 @@ sta_alm(ID almid, RELTIM almtim)
 		else {
 			p_almcb->almsta = true;
 		}
-		tmevtb_enqueue(&(p_almcb->tmevtb), almtim);
+		tmevtb_enqueue_reltim(&(p_almcb->tmevtb), almtim);
 		ercd = E_OK;
 	}
 	unlock_cpu();
@@ -379,6 +382,9 @@ call_alarm(ALMCB *p_almcb)
 
 	/*
 	 *  通知ハンドラを，CPUロック解除状態で呼び出す．
+	 *
+	 *  アラーム通知の生成／削除はタスクからしか行えないため，アラーム
+	 *  通知初期化ブロックをCPUロック解除状態で参照しても問題ない．
 	 */
 	unlock_cpu();
 

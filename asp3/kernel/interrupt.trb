@@ -5,7 +5,7 @@
 #       Advanced Standard Profile Kernel
 # 
 #   Copyright (C) 2015 by FUJI SOFT INCORPORATED, JAPAN
-#   Copyright (C) 2015,2016 by Embedded and Real-Time Systems Laboratory
+#   Copyright (C) 2015-2019 by Embedded and Real-Time Systems Laboratory
 #               Graduate School of Information Science, Nagoya Univ., JAPAN
 # 
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 # 
-#   $Id: interrupt.trb 612 2016-02-08 04:27:57Z ertl-hiro $
+#   $Id: interrupt.trb 1167 2019-02-03 17:06:17Z ertl-hiro $
 # 
 
 #
@@ -49,7 +49,7 @@
 #
 $kernelCfgH.add("#define TNUM_ISRID\t#{$cfgData[:CRE_ISR].size}")
 
-$cfgData[:CRE_ISR].sort.each do |key, params|
+$cfgData[:CRE_ISR].sort.each do |_, params|
   $kernelCfgH.add("#define #{params[:isrid]}\t#{params[:isrid].val}")
 end
 $kernelCfgH.add()
@@ -62,7 +62,7 @@ $kernelCfgC.comment_header("Interrupt Management Functions")
 #
 #  トレースログマクロのデフォルト定義
 #
-$kernelCfgC.append(<<EOS)
+$kernelCfgC.add(<<EOS)
 #ifndef LOG_ISR_ENTER
 #define LOG_ISR_ENTER(isrid)
 #endif /* LOG_ISR_ENTER */
@@ -70,25 +70,24 @@ $kernelCfgC.append(<<EOS)
 #ifndef LOG_ISR_LEAVE
 #define LOG_ISR_LEAVE(isrid)
 #endif /* LOG_ISR_LEAVE */
-
 EOS
 
 #
 #  CRE_ISRで使用できる割込み番号とそれに対応する割込みハンドラ番号のデ
 #  フォルト定義
 #
-if $INTNO_CREISR_VALID.nil?
+if !defined?($INTNO_CREISR_VALID)
   $INTNO_CREISR_VALID = $INTNO_VALID
 end
-if $INHNO_CREISR_VALID.nil?
+if !defined?($INHNO_CREISR_VALID)
   $INHNO_CREISR_VALID = $INHNO_VALID
 end
 
 #
 #  CFG_INTで使用できる割込み優先度のデフォルト定義
 # 
-if $INTPRI_CFGINT_VALID.nil?
-  $INTPRI_CFGINT_VALID = $TMIN_INTPRI.val.upto($TMAX_INTPRI.val).to_a
+if !defined?($INTPRI_CFGINT_VALID)
+  $INTPRI_CFGINT_VALID = $TMIN_INTPRI.upto($TMAX_INTPRI).to_a
 end
 
 #
@@ -110,188 +109,195 @@ end
 #
 #  割込み要求ラインに関するエラーチェック
 #
-$cfgData[:CFG_INT].each do |key, params|
-  #	intnoが割込み番号として正しくない場合（E_PAR）［NGKI2972］
-  if $INTNO_VALID.index(params[:intno]).nil?
+$cfgData[:CFG_INT].each do |_, params|
+  # intnoが有効範囲外の場合（E_PAR）［NGKI2972］
+  if !$INTNO_VALID.include?(params[:intno])
     error_illegal("E_PAR", params, :intno)
   end
 
-  #	intatrが無効の場合（E_RSATR）［NGKI2969］
+  # intatrが無効の場合（E_RSATR）［NGKI2969］［NGKI2944］［NGKI2945］
   #（TA_ENAINT，TA_EDGE，TARGET_INTATR以外のビットがセットされている場合）
   if (params[:intatr] & ~($TA_ENAINT|$TA_EDGE|$TARGET_INTATR)) != 0
     error_illegal_sym("E_RSATR", params, :intatr, :intno)
   end
 
-  #	intpriがCFG_INTに対する割込み優先度として正しくない場合（E_PAR）
-  #	［NGKI2973］
-  if $INTPRI_CFGINT_VALID.index(params[:intpri]).nil?
-    error_illegal_sym("E_OBJ", params, :intpri, :intno)
+  # intpriがCFG_INTに対する割込み優先度として正しくない場合（E_PAR）
+  # ［NGKI2973］
+  if !$INTPRI_CFGINT_VALID.include?(params[:intpri])
+    error_illegal_sym("E_PAR", params, :intpri, :intno)
   end
 
-  # カーネル管理外に固定されているintnoに対して，intpriにTMIN_INTPRIよ
-  #	りも小さい値が指定されなかった場合（E_OBJ）［NGKI2983］
-  if !$INTNO_FIX_NONKERNEL.nil?
-    if !$INTNO_FIX_NONKERNEL.index(params[:intno]).nil?
-      if params[:intpri] >= $TMIN_INTPRI
-        error_ercd("E_OBJ", params, "intno `#{params[:intno]}'" \
-							" must have higher priority than TMIN_INTPRI")
-      end
+  # カーネル管理外に固定されているintnoに対して，intpriにTMIN_INTPRI以
+  # 上の値が指定された場合（E_OBJ）［NGKI2983］
+  if defined?($INTNO_FIX_NONKERNEL) \
+				&& $INTNO_FIX_NONKERNEL.include?(params[:intno])
+    if params[:intpri] >= $TMIN_INTPRI
+      error_ercd("E_OBJ", params, "%%intno must have higher priority " \
+											"than TMIN_INTPRI in %apiname")
     end
   end
 
-  #	カーネル管理に固定されているintnoに対して，intpriにTMIN_INTPRIより
-  #	も小さい値が指定された場合（E_OBJ）［NGKI2984］
-  if !$INTNO_FIX_KERNEL.nil?
-    if !$INTNO_FIX_KERNEL.index(params[:intno]).nil?
-      if params[:intpri] < $TMIN_INTPRI
-        error_ercd("E_OBJ", params, "intno `#{params[:intno]}'" \
-					" must have lower or equal priority to TMIN_INTPRI")
-      end
+  # カーネル管理に固定されているintnoに対して，intpriにTMIN_INTPRIより
+  # も小さい値が指定された場合（E_OBJ）［NGKI2984］
+  if defined?($INTNO_FIX_KERNEL) \
+				&& $INTNO_FIX_KERNEL.include?(params[:intno])
+    if params[:intpri] < $TMIN_INTPRI
+      error_ercd("E_OBJ", params, "%%intno must have lower or equal " \
+									"priority to TMIN_INTPRI in %apiname")
     end
+  end
+
+  # ターゲット依存のエラーチェック［NGKI2985］
+  if defined? TargetCheckCfgInt()
+    TargetCheckCfgInt(params)
   end
 end
 
 #
 #  割込みハンドラに関するエラーチェック
 #
-$cfgData[:DEF_INH].each do |key, params|
-  # inhnoが割込みハンドラ番号として正しくない場合（E_PAR）［NGKI3055］
-  if $INHNO_VALID.index(params[:inhno]).nil?
+$cfgData[:DEF_INH].each do |_, params|
+  # inhnoが有効範囲外の場合（E_PAR）［NGKI3055］
+  if !$INHNO_VALID.include?(params[:inhno])
     error_illegal("E_PAR", params, :inhno)
   end
 
-  # inhatrが無効の場合（E_RSATR）［NGKI3052］
+  # inhatrが無効の場合（E_RSATR）［NGKI3052］［NGKI2957］［NGKI2959］
   #（TARGET_INHATR以外のビットがセットされている場合）
-  if (params[:inhatr] & ~$TARGET_INHATR) != 0
+  if (params[:inhatr] & ~($TARGET_INHATR)) != 0
     error_illegal_sym("E_RSATR", params, :inhatr, :inhno)
   end
 
-  #	カーネル管理外に固定されているinhnoに対して，inhatrにTA_NONKERNELが
-  #	指定されていない場合（E_RSATR）［NGKI3067］
-  if !$INHNO_FIX_NONKERNEL.nil?
-    if !$INHNO_FIX_NONKERNEL.index(params[:inhno]).nil?
-      if (params[:inhatr] & $TA_NONKERNEL) == 0
-        error_ercd("E_RSATR", params, "inhno `#{params[:inhno]}'" \
-									" must be non-kernel interrupt")
-      end
+  # カーネル管理外に固定されているinhnoに対して，inhatrにTA_NONKERNELが
+  # 指定されていない場合（E_RSATR）［NGKI3067］
+  if defined?($INHNO_FIX_NONKERNEL) \
+				&& $INHNO_FIX_NONKERNEL.include?(params[:inhno])
+    if (params[:inhatr] & $TA_NONKERNEL) == 0
+      error_ercd("E_RSATR", params, "%%inhno must be " \
+								"non-kernel interrupt in %apiname")
     end
   end
 
-  #	カーネル管理に固定されているinhnoに対して，inhatrにTA_NONKERNELが指
-  #	定されている場合（E_RSATR）［NGKI3068］
-  if !$INHNO_FIX_KERNEL.nil?
-    if !$INHNO_FIX_KERNEL.index(params[:inhno]).nil?
-      if (params[:inhatr] & $TA_NONKERNEL) != 0
-        error_ercd("E_RSATR", params, "inhno `#{params[:inhno]}'" \
-									" must not be non-kernel interrupt")
-      end
+  # カーネル管理に固定されているinhnoに対して，inhatrにTA_NONKERNELが指
+  # 定されている場合（E_RSATR）［NGKI3068］
+  if defined?($INHNO_FIX_KERNEL) \
+				&& $INHNO_FIX_KERNEL.include?(params[:inhno])
+    if (params[:inhatr] & $TA_NONKERNEL) != 0
+      error_ercd("E_RSATR", params, "%%inhno must not be " \
+								"non-kernel interrupt in %apiname")
     end
   end
 
-  if $toIntnoVal.has_key?(params[:inhno].val)
+  if $INHNO_CREISR_VALID.include?(params[:inhno])
+    # 割込みハンドラ番号に対応する割込み番号がある場合
     intnoVal = $toIntnoVal[params[:inhno].val]
 
     # inhnoに対応するintnoに対するCFG_INTがない場合（E_OBJ）［NGKI3062］
     if !$cfgData[:CFG_INT].has_key?(intnoVal)
-      error_ercd("E_OBJ", params, "intno `#{intnoVal}' corresponding to" \
-				" inhno `#{params[:inhno]}' is not configured with CFG_INT")
+      error_ercd("E_OBJ", params, "intno `#{intnoVal}' corresponding to " \
+					"%%inhno in %apiname is not configured with CFG_INT")
     else
       intnoParams = $cfgData[:CFG_INT][intnoVal]
+
       if (params[:inhatr] & $TA_NONKERNEL) == 0
         # inhatrにTA_NONKERNELが指定されておらず，inhnoに対応するintno
         # に対してCFG_INTで設定された割込み優先度がTMIN_INTPRIよりも小
         # さい場合（E_OBJ）［NGKI3065］
         if intnoParams[:intpri] < $TMIN_INTPRI
-          error_ercd("E_OBJ", params, "intpri `#{intnoParams[:intpri]}'" \
-						" configured for inhno `#{params[:inhno]}' must" \
-						" be lower or equal to TMIN_INTPRI")
+          error_ercd("E_OBJ", params, "intpri `#{intnoParams[:intpri]}' " \
+				"configured for %%inhno must be lower or equal to TMIN_INTPRI")
         end
       else
         # inhatrにTA_NONKERNELが指定されており，inhnoに対応するintnoに
         # 対してCFG_INTで設定された割込み優先度がTMIN_INTPRI以上である
         # 場合（E_OBJ）［NGKI3066］
         if intnoParams[:intpri] >= $TMIN_INTPRI
-          error_ercd("E_OBJ", params, "intpri `#{intnoParams[:intpri]}'" \
-						" configured for inhno `#{params[:inhno]}' must" \
-						" be higher than with TMIN_INTPRI")
+          error_ercd("E_OBJ", params, "intpri `#{intnoParams[:intpri]}' " \
+					"configured for %%inhno must be higher than TMIN_INTPRI")
         end
       end
     end
+  end
+
+  # ターゲット依存のエラーチェック［NGKI3078］
+  if defined? TargetCheckDefInh()
+    TargetCheckDefInh(params)
   end
 end
 
 #
 #  割込みサービスルーチン（ISR）に関するエラーチェックと割込みハンドラの生成
 #
-$cfgData[:CRE_ISR].sort.each do |key, params|
-  #	isratrが無効の場合（E_RSATR）［NGKI2998］
+$cfgData[:CRE_ISR].sort.each do |_, params|
+  # isratrが無効の場合（E_RSATR）［NGKI2998］［NGKI2952］［NGKI5176］
   #（TARGET_ISRATR以外のビットがセットされている場合）
-  if (params[:isratr] & ~$TARGET_ISRATR) != 0
+  if (params[:isratr] & ~($TARGET_ISRATR)) != 0
     error_illegal("E_RSATR", params, "isratr")
   end
 
-  #	intnoがCRE_ISRに対する割込み番号として正しくない場合（E_PAR）
-  #	［NGKI3003］
-  if $INTNO_CREISR_VALID.index(params[:intno]).nil?
+  # intnoが有効範囲外の場合（E_PAR）［NGKI3003］
+  if !$INTNO_CREISR_VALID.include?(params[:intno])
     error_illegal("E_PAR", params, "intno")
   end
 
-  #	(TMIN_ISRPRI <= isrpri && isrpri <= TMAX_ISRPRI)でない場合（E_PAR）
-  #	［NGKI3005］
+  # isrpriが有効範囲外の場合（E_PAR）［NGKI3005］
+  #（TMIN_ISRPRI <= isrpri && isrpri <= TMAX_ISRPRIでない場合）
   if !($TMIN_ISRPRI <= params[:isrpri] && params[:isrpri] <= $TMAX_ISRPRI)
     error_illegal("E_PAR", params, "isrpri")
+  end
+
+  # intnoに対応するinhnoに対してDEF_INHがある場合（E_OBJ）［NGKI3013］
+  inhnoVal = $toInhnoVal[params[:intno].val]
+  if $cfgData[:DEF_INH].has_key?(inhnoVal)
+    error_ercd("E_OBJ", params, "%%intno in %apiname is duplicated " \
+					"with inhno #{$cfgData[:DEF_INH][inhnoVal][:inhno]}")
+  end
+
+  # intnoに対するCFG_INTがない場合（E_OBJ）［NGKI3012］
+  if !$cfgData[:CFG_INT].has_key?(params[:intno])
+    error_ercd("E_OBJ", params, "%%intno in %apiname " \
+									"is not configured with CFG_INT")
+  else
+    intnoParams = $cfgData[:CFG_INT][params[:intno]]
+
+    # intnoでカーネル管理外の割込みを指定した場合（E_OBJ）［NGKI3014］
+    #（intnoに対してCFG_INTで設定された割込み優先度がTMIN_INTPRIよりも小
+    #  さい場合）
+    if intnoParams[:intpri] < $TMIN_INTPRI
+      error_ercd("E_OBJ", params,
+					"intpri `#{intnoParams[:intpri]}' configured for " \
+					"%%intno with CFG_INT in higher than TMIN_INTPRI")
+    end
+  end
+
+  # ターゲット依存のエラーチェック
+  if defined? TargetCheckCreIsr()
+    TargetCheckCreIsr(params)
   end
 end
 
 $INTNO_CREISR_VALID.each do |intnoVal|
-  # 割込み番号intnoに対して登録されたISRのリストの作成
+  # 割込み番号intnoValに対して登録されたISRのリストの作成
   isrParamsList = []
-  $cfgData[:CRE_ISR].sort.each do |key, params|
-    if params[:intno].val == intnoVal
+  $cfgData[:CRE_ISR].sort.each do |_, params|
+    if params[:intno] == intnoVal
       isrParamsList.push(params)
     end
   end
 
-  #	割込み番号intnoに対して登録されたISRが存在する場合
+  # 割込み番号intnoValに対して登録されたISRが存在する場合
   if isrParamsList.size > 0
     inhnoVal = $toInhnoVal[intnoVal]
 
-    # intnoに対応するinhnoに対してDEF_INHがある場合（E_OBJ）［NGKI3013］
-    if $cfgData[:DEF_INH].has_key?(inhnoVal)
-      inhnoParams = $cfgData[:DEF_INH][inhnoVal]
-      error_ercd("E_OBJ", isrParamsList[0], \
-					"intno `#{isrParamsList[0][:intno]}' in CRE_ISR" \
-					" is duplicated with inhno #{inhnoParams[:inhno]}")
-    end
-
-    # intnoに対するCFG_INTがない場合（E_OBJ）［NGKI3012］
-    if !$cfgData[:CFG_INT].has_key?(intnoVal)
-      error_ercd("E_OBJ", isrParamsList[0], \
-						"intno `#{isrParamsList[0][:intno]}'" \
-						" is not configured with CFG_INT")
-    else
-      intnoParams = $cfgData[:CFG_INT][intnoVal]
-
-      #	intnoに対してCFG_INTで設定された割込み優先度がTMIN_INTPRIよりも
-      #	小さい場合（E_OBJ）［NGKI3014］
-      if intnoParams[:intpri] < $TMIN_INTPRI
-        error_ercd("E_OBJ", isrParamsList[0],
-						"intpri `#{intnoParams[:intpri]}' configured for" \
-						" intno `#{isrParamsList[0][:intno]}}' in higher" \
-						" than TMIN_INTPRI")
-      end
-    end
-
-    # 次のDEF_INHに相当するデータを生成
+    # 次の静的APIに相当するデータを生成
     # DEF_INH(inhno, { TA_NULL, _kernel_inthdr_<intno> } );
-    params = {
-      :inhno => StrVal.new(inhnoVal.to_s, inhnoVal),
-      :inhatr => $TA_NULL,
-      :inthdr => StrVal.new("_kernel_inthdr_#{intnoVal}")
+    $cfgData[:DEF_INH][inhnoVal] = {
+      inhno: NumStr.new(inhnoVal),
+      inhatr: NumStr.new($TA_NULL, "TA_NULL"),
+      inthdr: "_kernel_inthdr_#{intnoVal}"
     }
-    $cfgData[:DEF_INH][inhnoVal] = params
 
-    # 割込みサービスルーチン用の割込みハンドラ
+    # 割込みサービスルーチンを呼び出す割込みハンドラの生成［NGKI2941］
     $kernelCfgC.add("void")
     $kernelCfgC.add("_kernel_inthdr_#{intnoVal}(void)")
     $kernelCfgC.add("{")
@@ -317,21 +323,20 @@ end
 #
 #  割込みハンドラのための標準的な初期化情報の生成
 #
-if $OMIT_INITIALIZE_INTERRUPT.nil? || !$USE_INHINIB_TABLE.nil?
+if !$OMIT_INITIALIZE_INTERRUPT || $USE_INHINIB_TABLE
   #
   #  定義する割込みハンドラの数
   #
-  $kernelCfgC.append(<<EOS)
+  $kernelCfgC.add(<<EOS)
 #define TNUM_DEF_INHNO	#{$cfgData[:DEF_INH].size}
 const uint_t _kernel_tnum_def_inhno = TNUM_DEF_INHNO;
-
 EOS
 
   if $cfgData[:DEF_INH].size != 0
     #
     #  割込みハンドラのエントリ
     #
-    $cfgData[:DEF_INH].each do |key, params|
+    $cfgData[:DEF_INH].each do |_, params|
       if (params[:inhatr] & $TA_NONKERNEL) == 0
         $kernelCfgC.add("INTHDR_ENTRY(#{params[:inhno]}, " \
 						"#{params[:inhno].val}, #{params[:inthdr]})")
@@ -343,7 +348,7 @@ EOS
     #  割込みハンドラ初期化ブロック
     #
     $kernelCfgC.add("const INHINIB _kernel_inhinib_table[TNUM_DEF_INHNO] = {")
-    $cfgData[:DEF_INH].each_with_index do |(key, params), index|
+    $cfgData[:DEF_INH].each_with_index do |(_, params), index|
       $kernelCfgC.add(",") if index > 0
       if (params[:inhatr] & $TA_NONKERNEL) == 0
         inthdr = "(FP)(INT_ENTRY(#{params[:inhno]}, #{params[:inthdr]}))"
@@ -364,14 +369,13 @@ end
 #
 #  割込み要求ラインのための標準的な初期化情報の生成
 #
-if $OMIT_INITIALIZE_INTERRUPT.nil? || !$USE_INTINIB_TABLE.nil?
+if !$OMIT_INITIALIZE_INTERRUPT || $USE_INTINIB_TABLE
   #
   #  設定する割込み要求ラインの数
   #
-  $kernelCfgC.append(<<EOS)
+  $kernelCfgC.add(<<EOS)
 #define TNUM_CFG_INTNO	#{$cfgData[:CFG_INT].size}
 const uint_t _kernel_tnum_cfg_intno = TNUM_CFG_INTNO;
-
 EOS
 
   #
@@ -379,7 +383,7 @@ EOS
   #
   if $cfgData[:CFG_INT].size != 0
     $kernelCfgC.add("const INTINIB _kernel_intinib_table[TNUM_CFG_INTNO] = {")
-    $cfgData[:CFG_INT].each_with_index do |(key, params), index|
+    $cfgData[:CFG_INT].each_with_index do |(_, params), index|
       $kernelCfgC.add(",") if index > 0
       $kernelCfgC.append("\t{ (#{params[:intno]}), (#{params[:intatr]}), " \
 													"(#{params[:intpri]}) }")

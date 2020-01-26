@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2013-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2013-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_timer.h 458 2015-08-21 14:59:09Z ertl-hiro $
+ *  $Id: target_timer.h 1065 2018-11-20 11:09:50Z ertl-hiro $
  */
 
 /*
@@ -76,17 +76,27 @@ extern void	target_hrt_terminate(intptr_t exinf);
 /*
  *  高分解能タイマの現在のカウント値の読出し
  */
-extern HRTCNT target_hrt_get_current(void);
+Inline HRTCNT
+target_hrt_get_current(void)
+{
+	return(0U);
+}
 
 /*
  *  高分解能タイマへの割込みタイミングの設定
  */
-extern void target_hrt_set_event(HRTCNT hrtcnt);
+Inline void
+target_hrt_set_event(HRTCNT hrtcnt)
+{
+}
 
 /*
  *  高分解能タイマ割込みの要求
  */
-extern void target_hrt_raise_event(void);
+Inline void
+target_hrt_raise_event(void)
+{
+}
 
 /*
  *  割込みタイミングに指定する最大値
@@ -104,10 +114,10 @@ extern void target_hrt_handler(void);
 /*
  *  オーバランタイマ割込みハンドラ登録のための定数
  */
-#define INHNO_OVRTIMER	TINTNO_OVRTIMER		/* 割込みハンドラ番号 */
-#define INTNO_OVRTIMER	TINTNO_OVRTIMER		/* 割込み番号 */
-#define INTPRI_OVRTIMER	(TMAX_INTPRI)		/* 割込み優先度 */
-#define INTATR_OVRTIMER	TA_EDGE				/* 割込み属性 */
+#define INHNO_OVRTIMER		TINTNO_OVRTIMER		/* 割込みハンドラ番号 */
+#define INTNO_OVRTIMER		TINTNO_OVRTIMER		/* 割込み番号 */
+#define INTPRI_OVRTIMER		TMAX_INTPRI			/* 割込み優先度 */
+#define INTATR_OVRTIMER		TA_EDGE				/* 割込み属性 */
 
 #ifndef TOPPERS_MACRO_ONLY
 
@@ -124,17 +134,28 @@ extern void target_ovrtimer_terminate(intptr_t exinf);
 /*
  *  オーバランタイマの動作開始
  */
-extern void target_ovrtimer_start(PRCTIM ovrtim);
+Inline void
+target_ovrtimer_start(PRCTIM ovrtim)
+{
+}
 
 /*
  *  オーバランタイマの停止
  */
-extern PRCTIM target_ovrtimer_stop(void);
+Inline PRCTIM
+target_ovrtimer_stop(void)
+{
+	return(0U);
+}
 
 /*
  *  オーバランタイマの現在値の読出し
  */
-extern PRCTIM target_ovrtimer_get_current(void);
+Inline PRCTIM
+target_ovrtimer_get_current(void)
+{
+	return(0U);
+}
 
 /*
  *  オーバランタイマ割込みハンドラ

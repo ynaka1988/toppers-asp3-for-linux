@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2014-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2014-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_messagebuf1.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_messagebuf1.c 949 2018-04-19 13:29:51Z ertl-hiro $
  */
 
 /* 
@@ -86,7 +86,6 @@
  * 【テストシーケンス】
  *
  *	== TASK1（優先度：高）==
- *		call(set_bit_func(bit_kernel))
  *	1:	act_tsk(TASK2)
  *		act_tsk(TASK3)
  *		ref_mbf(MBF1, &rmbf)
@@ -130,14 +129,14 @@
  *	14:	snd_mbf(MBF1, string3, 11)		... (A-1)
  *		assert(strncmp(buf1, string3, 11) == 0)
  *		snd_mbf(MBF1, string1, 16)		... (A-3)(C-3)，使用：16〜27,0〜7
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2（続き）==
  *	15:	slp_tsk()
  *	== TASK3（続き）==
  *	16:	snd_mbf(MBF1, string2, 12)		... (A-5)
  *	== TASK1（続き）==
  *	17:	wup_tsk(TASK2)
- *		tslp_tsk(1000U) -> E_TMOUT
+ *		tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2（続き）==
  *	18:	snd_mbf(MBF1, string3, 4)		... (A-4)
  *	== TASK1（続き）==
@@ -193,8 +192,6 @@ task1(intptr_t exinf)
 
 	test_start(__FILE__);
 
-	set_bit_func(bit_kernel);
-
 	check_point(1);
 	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
@@ -237,14 +234,14 @@ task1(intptr_t exinf)
 	ercd = snd_mbf(MBF1, string1, 16);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(17);
 	ercd = wup_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(1000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(19);

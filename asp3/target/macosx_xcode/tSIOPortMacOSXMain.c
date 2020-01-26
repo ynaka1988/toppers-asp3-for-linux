@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2006-2016 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2006-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,11 +35,11 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tSIOPortMacOSXMain.c 526 2016-01-14 11:43:26Z ertl-hiro $
+ *  $Id: tSIOPortMacOSXMain.c 1095 2018-11-28 00:57:28Z ertl-hiro $
  */
 
 /*
- *		SIOドライバ（Mac OS X用）
+ *		シリアルインタフェースドライバのターゲット依存部（Mac OS X用）
  */
 
 #include "macosx.h"
@@ -60,30 +60,35 @@ eSIOPort_open(CELLIDX idx)
 	int_t	fd;
 	struct	termios term;
 
-	if (ATTR_path != NULL) {
-		fd = open(ATTR_path, O_RDWR, 0777);
-		assert(fd >= 0);
-		VAR_read_fd = fd;
-		VAR_write_fd = fd;
-	}
-	else {
-		fd = STDIN_FILENO;					/* 標準入出力を使う */
-		VAR_read_fd = STDIN_FILENO;
-		VAR_write_fd = STDOUT_FILENO;
-	}
-	fcntl(fd, F_SETOWN, getpid());
-	fcntl(fd, F_SETFL, (O_NONBLOCK | O_ASYNC));
+	if (!VAR_opened) {
+		/*
+		 *  既にオープンしている場合は、二重にオープンしない．
+		 */
+		if (ATTR_path != NULL) {
+			fd = open(ATTR_path, O_RDWR, 0777);
+			assert(fd >= 0);
+			VAR_read_fd = fd;
+			VAR_write_fd = fd;
+		}
+		else {
+			fd = STDIN_FILENO;				/* 標準入出力を使う */
+			VAR_read_fd = STDIN_FILENO;
+			VAR_write_fd = STDOUT_FILENO;
+		}
+		fcntl(fd, F_SETOWN, getpid());
+		fcntl(fd, F_SETFL, (O_NONBLOCK | O_ASYNC));
 
-	tcgetattr(fd, &VAR_saved_term);
-	term = VAR_saved_term;
-	term.c_lflag &= ~(ECHO | ICANON);
-	tcsetattr(fd, TCSAFLUSH, &term);
+		tcgetattr(fd, &VAR_saved_term);
+		term = VAR_saved_term;
+		term.c_lflag &= ~(ECHO | ICANON);
+		tcsetattr(fd, TCSAFLUSH, &term);
 
-	VAR_rcv_flag = false;
-	VAR_rcv_rdy = false;
-	VAR_snd_flag = false;
-	VAR_snd_rdy = false;
-	VAR_openflag = true;
+		VAR_rcv_flag = false;
+		VAR_rcv_rdy = false;
+		VAR_snd_flag = false;
+		VAR_snd_rdy = false;
+		VAR_opened = true;
+	}
 }
 
 /*
@@ -95,14 +100,16 @@ eSIOPort_close(CELLIDX idx)
 	CELLCB	*p_cellcb = GET_CELLCB(idx);
 	int_t	fd;
 
-	fd = VAR_read_fd;
-	tcsetattr(fd, TCSAFLUSH, &VAR_saved_term);
-	fcntl(fd, F_SETFL, 0);
+	if (VAR_opened) {
+		fd = VAR_read_fd;
+		tcsetattr(fd, TCSAFLUSH, &VAR_saved_term);
+		fcntl(fd, F_SETFL, 0);
 
-	if (ATTR_path != NULL) {
-		close(VAR_read_fd);
+		if (ATTR_path != NULL) {
+			close(VAR_read_fd);
+		}
+		VAR_opened = false;
 	}
-	VAR_openflag = false;
 }
 
 /*
@@ -222,9 +229,5 @@ eiISR_main(CELLIDX idx)
 void
 eTerminate_main(CELLIDX idx)
 {
-	CELLCB	*p_cellcb = GET_CELLCB(idx);
-
-	if (VAR_openflag) {
-		eSIOPort_close(idx);
-	}
+	eSIOPort_close(idx);
 }

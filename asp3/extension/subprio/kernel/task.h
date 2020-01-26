@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2017 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: task.h 452 2015-08-15 02:36:39Z ertl-hiro $
+ *  $Id: task.h 1240 2019-07-13 04:04:34Z ertl-hiro $
  */
 
 /*
@@ -235,7 +235,7 @@ typedef struct task_control_block {
 #else /* UINT8_MAX */
 	BIT_FIELD_UINT	tstat : 8;		/* タスク状態（内部表現）*/
 	BIT_FIELD_UINT	bpriority : 8;	/* ベース優先度（内部表現）*/
-	BIT_FIELD_UINT	priority : 8	/* 現在の優先度（内部表現）*/;
+	BIT_FIELD_UINT	priority : 8;	/* 現在の優先度（内部表現）*/
 #endif /* UINT8_MAX */
 	BIT_FIELD_BOOL	actque : 1;		/* 起動要求キューイング */
 	BIT_FIELD_BOOL	wupque : 1;		/* 起床要求キューイング */
@@ -383,9 +383,8 @@ extern TCB	*search_schedtsk(void);
 /*
  *  実行できる状態への遷移
  *
- *  p_tcbで指定されるタスクをレディキューに挿入する．レディキューに挿入
- *  したタスクの優先度が，実行すべきタスクの優先度よりも高い場合は，実
- *  行すべきタスクを更新する．
+ *  p_tcbで指定されるタスクをレディキューに挿入する．また，必要な場合
+ *  には，実行すべきタスクを更新する．
  */
 extern void	make_runnable(TCB *p_tcb);
 
@@ -397,6 +396,19 @@ extern void	make_runnable(TCB *p_tcb);
  *  る．
  */
 extern void	make_non_runnable(TCB *p_tcb);
+
+/*
+ *  タスクディスパッチ可能状態への遷移
+ *
+ *  タスクディスパッチ可能状態であることを示すフラグ（dspflg）をtrueに
+ *  し，実行すべきタスクを更新する．
+ */
+Inline void
+set_dspflg(void)
+{
+	dspflg = true;
+	p_schedtsk = search_schedtsk();
+}
 
 /*
  *  休止状態への遷移
@@ -420,29 +432,29 @@ extern void	make_active(TCB *p_tcb);
  *  p_tcbで指定されるタスクの優先度をnewpri（内部表現）に変更する．また，
  *  必要な場合には，実行すべきタスクを更新する．
  *
- *  p_tcbで指定されるタスクの優先順位は，優先度が同じタスク（サブ優先度
- *  が使われる状況では，サブ優先度も同じタスク）の中で，mtxmodeがfalse
- *  の時は最低，mtxmodeがtrueの時は最高とする．
+ *  p_tcbで指定されるタスクが実行できる状態である場合，その優先順位は，
+ *  優先度が同じタスクの中で，mtxmodeがfalseの時は最低，mtxmodeがtrue
+ *  の時は最高とする．
  */
 extern void	change_priority(TCB *p_tcb, uint_t newpri, bool_t mtxmode);
 
 /*
  *  タスクのサブ優先度の変更
  *
- *  p_tcbで指定されるタスクのサブ優先度をsubpriに変更する．また，必要な
- *  場合には，実行すべきタスクを更新する．
+ *  p_tcbで指定されるタスク（対象タスク）のサブ優先度をsubpriに変更す
+ *  る．また，必要な場合には，実行すべきタスクを更新する．
  *
- *  p_tcbで指定されるタスクの優先順位は，タスクが実行できる状態で，タス
- *  クの現在優先度がサブ優先度を使用すると設定されている場合には，同じ
- *  優先度で同じサブ優先度のタスクの中で最低とする．
+ *  対象タスクの優先順位は，タスクが実行できる状態で，タスクの現在優先
+ *  度がサブ優先度を使用すると設定されている場合には，同じ優先度で同じ
+ *  サブ優先度のタスクの中で最低とする．
  */
 extern void change_subprio(TCB *p_tcb, uint_t subpri);
 
 /*
  *  レディキューの回転
  *
- *  レディキュー中の，p_queueで指定されるタスクキューを回転させる．また，
- *  必要な場合には，実行すべきタスクを更新する．
+ *  レディキュー中の，p_queueで指定されるタスクキューを回転させる．ま
+ *  た，必要な場合には，実行すべきタスクを更新する．
  */
 extern void	rotate_ready_queue(QUEUE *p_queue);
 

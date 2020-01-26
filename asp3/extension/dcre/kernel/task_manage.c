@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: task_manage.c 605 2016-02-07 15:55:19Z ertl-hiro $
+ *  $Id: task_manage.c 1030 2018-11-01 12:40:36Z ertl-hiro $
  */
 
 /*
@@ -119,12 +119,11 @@
 
 /*
  *  タスクの生成
+ *
+ *  pk_ctsk->exinfは，エラーチェックをせず，一度しか参照しないため，ロー
+ *  カル変数にコピーする必要がない（途中で書き換わっても支障がない）．
  */
 #ifdef TOPPERS_acre_tsk
-
-#ifndef TARGET_MIN_STKSZ
-#define TARGET_MIN_STKSZ	1U		/* 未定義の場合は0でないことをチェック */
-#endif /* TARGET_MIN_STKSZ */
 
 ER_UINT
 acre_tsk(const T_CTSK *pk_ctsk)
@@ -132,22 +131,30 @@ acre_tsk(const T_CTSK *pk_ctsk)
 	TCB		*p_tcb;
 	TINIB	*p_tinib;
 	ATR		tskatr;
-	void	*stk;
+	TASK	task;
+	PRI		itskpri;
+	size_t	stksz;
+	STK_T	*stk;
 	ER		ercd;
 
 	LOG_ACRE_TSK_ENTER(pk_ctsk);
 	CHECK_TSKCTX_UNL();
-	CHECK_RSATR(pk_ctsk->tskatr, TA_ACT|TA_NOACTQUE|TARGET_TSKATR);
-	CHECK_PAR(FUNC_ALIGN(pk_ctsk->task));
-	CHECK_PAR(FUNC_NONNULL(pk_ctsk->task));
-	CHECK_PAR(VALID_TPRI(pk_ctsk->itskpri));
-	CHECK_PAR(pk_ctsk->stksz >= TARGET_MIN_STKSZ);
-	if (pk_ctsk->stk != NULL) {
-		CHECK_PAR(STKSZ_ALIGN(pk_ctsk->stksz));
-		CHECK_PAR(STACK_ALIGN(pk_ctsk->stk));
-	}
+
 	tskatr = pk_ctsk->tskatr;
+	task = pk_ctsk->task;
+	itskpri = pk_ctsk->itskpri;
+	stksz = pk_ctsk->stksz;
 	stk = pk_ctsk->stk;
+
+	CHECK_VALIDATR(tskatr, TA_ACT|TA_NOACTQUE|TARGET_TSKATR);
+	CHECK_PAR(FUNC_ALIGN(task));
+	CHECK_PAR(FUNC_NONNULL(task));
+	CHECK_PAR(VALID_TPRI(itskpri));
+	CHECK_PAR(stksz >= TARGET_MIN_STKSZ);
+	if (stk != NULL) {
+		CHECK_PAR(STKSZ_ALIGN(stksz));
+		CHECK_PAR(STACK_ALIGN(stk));
+	}
 
 	lock_cpu();
 	if (queue_empty(&free_tcb)) {
@@ -155,7 +162,8 @@ acre_tsk(const T_CTSK *pk_ctsk)
 	}
 	else {
 		if (stk == NULL) {
-			stk = kernel_malloc(ROUND_STK_T(pk_ctsk->stksz));
+			stksz = ROUND_STK_T(stksz);
+			stk = malloc_mpk(stksz);
 			tskatr |= TA_MEMALLOC;
 		}
 		if (stk == NULL) {
@@ -166,19 +174,23 @@ acre_tsk(const T_CTSK *pk_ctsk)
 			p_tinib = (TINIB *)(p_tcb->p_tinib);
 			p_tinib->tskatr = tskatr;
 			p_tinib->exinf = pk_ctsk->exinf;
-			p_tinib->task = pk_ctsk->task;
-			p_tinib->ipriority = INT_PRIORITY(pk_ctsk->itskpri);
+			p_tinib->task = task;
+			p_tinib->ipriority = INT_PRIORITY(itskpri);
 #ifdef USE_TSKINICTXB
-			init_tskinictxb(&(p_tinib->tskinictxb), stk, pk_ctsk);
+			init_tskinictxb(&(p_tinib->tskinictxb), stksz, stk);
 #else /* USE_TSKINICTXB */
-			p_tinib->stksz = pk_ctsk->stksz;
+			p_tinib->stksz = stksz;
 			p_tinib->stk = stk;
 #endif /* USE_TSKINICTXB */
 
 			p_tcb->actque = false;
+			p_tcb->p_lastmtx = NULL;
 			make_dormant(p_tcb);
 			if ((p_tcb->p_tinib->tskatr & TA_ACT) != 0U) {
 				make_active(p_tcb);
+				if (p_runtsk != p_schedtsk) {
+					dispatch();
+				}
 			}
 			ercd = TSKID(p_tcb);
 		}
@@ -222,7 +234,7 @@ del_tsk(ID tskid)
 		term_tskinictxb(&(p_tinib->tskinictxb));
 #else /* USE_TSKINICTXB */
 		if ((p_tinib->tskatr & TA_MEMALLOC) != 0U) {	/*［NGKI1109］*/
-			kernel_free(p_tinib->stk);
+			free_mpk(p_tinib->stk);
 		}
 #endif /* USE_TSKINICTXB */
 		p_tinib->tskatr = TA_NOEXS;				/*［NGKI1108］*/
@@ -270,7 +282,7 @@ act_tsk(ID tskid)
 				dispatch();
 			}
 			else {
-				request_dispatch();
+				request_dispatch_retint();
 			}
 		}
 		ercd = E_OK;
@@ -356,27 +368,29 @@ get_tst(ID tskid, STAT *p_tskstat)
 	if (p_tcb->p_tinib->tskatr == TA_NOEXS) {
 		ercd = E_NOEXS;							/*［NGKI3617］*/
 	}
-	else if (TSTAT_DORMANT(tstat)) {			/*［NGKI3620］*/
-		*p_tskstat = TTS_DMT;
-	}
-	else if (TSTAT_SUSPENDED(tstat)) {
-		if (TSTAT_WAITING(tstat)) {
-			*p_tskstat = TTS_WAS;
+	else {
+		if (TSTAT_DORMANT(tstat)) {				/*［NGKI3620］*/
+			*p_tskstat = TTS_DMT;
+		}
+		else if (TSTAT_SUSPENDED(tstat)) {
+			if (TSTAT_WAITING(tstat)) {
+				*p_tskstat = TTS_WAS;
+			}
+			else {
+				*p_tskstat = TTS_SUS;
+			}
+		}
+		else if (TSTAT_WAITING(tstat)) {
+			*p_tskstat = TTS_WAI;
+		}
+		else if (p_tcb == p_runtsk) {
+			*p_tskstat = TTS_RUN;
 		}
 		else {
-			*p_tskstat = TTS_SUS;
+			*p_tskstat = TTS_RDY;
 		}
+		ercd = E_OK;
 	}
-	else if (TSTAT_WAITING(tstat)) {
-		*p_tskstat = TTS_WAI;
-	}
-	else if (p_tcb == p_runtsk) {
-		*p_tskstat = TTS_RUN;
-	}
-	else {
-		*p_tskstat = TTS_RDY;
-	}
-	ercd = E_OK;
 	unlock_cpu();
 
   error_exit:
@@ -408,6 +422,11 @@ chg_pri(ID tskid, PRI tskpri)
 		p_tcb = get_tcb(tskid);
 	}
 	if (tskpri == TPRI_INI) {
+		/*
+		 *  以下の代入文は，対象タスクが未登録の場合に無効なフィールド
+		 *  を参照するが，その場合はnewbpriの値を使わないので，問題な
+		 *  い．
+		 */
 		newbpri = p_tcb->p_tinib->ipriority;	/*［NGKI1199］*/
 	}
 	else {

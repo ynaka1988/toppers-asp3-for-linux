@@ -3,7 +3,7 @@
 #  TECS Generator
 #      Generator for TOPPERS Embedded Component System
 #  
-#   Copyright (C) 2008-2014 by TOPPERS Project
+#   Copyright (C) 2008-2018 by TOPPERS Project
 #--
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
 #   ア（本ソフトウェアを改変したものを含む．以下同じ）を使用・複製・改
@@ -34,7 +34,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 #  
-#   $Id: C_parser.y.rb 2296 2015-11-29 11:57:33Z okuma-top $
+#   $Id: C_parser.y.rb 2810 2018-03-11 13:20:03Z okuma-top $
 #++
 
 class C_parser
@@ -74,26 +74,30 @@ primary_expression
 
 string_literal_list
         : STRING_LITERAL
+		{ result = [val[0]] }
         | string_literal_list STRING_LITERAL
 		{ result << val[1] }
 
 # 関数呼び出しと後置インクリメント、デクリメント演算子がない
 postfix_expression
         : primary_expression
-        | primary_expression '(' argument_list ')'
         | postfix_expression '[' expression ']'
 		{ result = [ :OP_SUBSC, val[0], val[2] ] }
+        | postfix_expression '(' ')'
+        | postfix_expression '(' argument_list ')'
+        | postfix_expression type_qualifier '(' argument_list ')'    # intended __asm volatile ( "   MNEMONIC  OPERAND" );
         | postfix_expression '.' IDENTIFIER
 		{ result = [ :OP_DOT, val[0], val[2] ] }
         | postfix_expression '->' IDENTIFIER
 		{ result = [ :OP_REF, val[0], val[2] ] }
         | postfix_expression '++'	{ result = val[0] }   # ++, -- は無視する
         | postfix_expression '--'	{ result = val[0] }
+        | '(' type_name ')' '{' initializer_list '}'
+        | '(' type_name ')' '{' initializer_list ',' '}'
 
 argument_list
-        :
-        | expression
-        | argument_list ',' expression
+        : assignment_expression
+        | argument_list ',' assignment_expression
 
 
 # 前置インクリメント、デクリメント演算子がない
@@ -192,13 +196,32 @@ conditional_expression
         | logical_or_expression '?' expression ':' conditional_expression
 		{ result = [ :OP_CEX, val[0], val[2].get_elements, val[4] ]  }
 
+assignment_expression
+		: conditional_expression
+  	| unary_expression assignment_operator assignment_expression
 
-# コンマ演算子が使えない
+assignment_operator
+        : '='
+        | '+='
+        | '-='
+        | '*='
+        | '/='
+        | '%='
+        | '<<='
+        | '>>='
+        | '&='
+        | '|='
+        | '^='
+
 expression
-        : conditional_expression
+        : assignment_expression
 		{
 			result = Expression.new( val[0] )
 			# result.print
+		}
+       | expression ',' assignment_expression
+		{
+			result = Expression.new( val[2] )    # ',' の後ろを採用
 		}
 
 constant_expression
@@ -254,6 +277,8 @@ declaration_specifiers
 			val[1].set_qualifier val[0]
                         result = val[1]
 		}
+        | function_specifier
+        | function_specifier declaration_specifiers
 
 
 init_declarator_list
@@ -267,43 +292,63 @@ init_declarator
         | declarator '=' initializer
 		{ val[0].set_initializer( val[2] ) }
 
-type_specifier
-        : VOID	{ set_no_type_name true; result = CVoidType.new }
-        | FLOAT	{ set_no_type_name true; result = CFloatType.new(-32) }
-        | DOUBLE	{ set_no_type_name true; result = CFloatType.new(-64) }
-        | BOOL	{ set_no_type_name true; result = CBoolType.new }
-        | struct_specifier	{ set_no_type_name true; result = val[0] } # set_no_type_name true は struct_tag でも呼ばれる
-        | union_specifier	{ set_no_type_name true; result = CVoidType.new }  # void が宣言されたとする
-        | enum_specifier	{ set_no_type_name true; result = CVoidType.new }  # void が宣言されたとする
-        | TYPE_NAME	{ set_no_type_name true; result = CDefinedType.new( val[0].val ) }
+    
+storage_class
+        : EXTERN
+        | STATIC
+        | AUTO
+        | REGISTER
 
-        | CHAR	{ set_no_type_name true; result = CIntType.new(-11 ) }
-        | SHORT	{ set_no_type_name true; result = CIntType.new( -2 ) }
-        | INT		{ set_no_type_name true; result = CIntType.new( -3 ) }
-        | LONG	{ set_no_type_name true; result = CIntType.new( -4 ) }
+type_specifier
+        : VOID
+        { set_no_type_name true; result = CVoidType.new }
+        | CHAR
+	      { set_no_type_name true; result = CIntType.new(-11 ) }
+        | SHORT
+	      { set_no_type_name true; result = CIntType.new( -2 ) }
+        | INT
+	      { set_no_type_name true; result = CIntType.new( -3 ) }
+        | LONG
+	      { set_no_type_name true; result = CIntType.new( -4 ) }
         | SIGNED
-		{
-			set_no_type_name true
-			result = CIntType.new( -3 )
-			result.set_sign :SIGNED
-		}
+        {
+          set_no_type_name true
+         	result = CIntType.new( -3 )
+          result.set_sign :SIGNED
+        }
         | UNSIGNED
-		{
-			set_no_type_name true
-			result = CIntType.new( -3 )
-			result.set_sign :UNSIGNED
-		}
+        {
+          set_no_type_name true
+          result = CIntType.new( -3 )
+          result.set_sign :UNSIGNED
+        }
+        | FLOAT
+	      { set_no_type_name true; result = CFloatType.new(-32) }
+        | DOUBLE
+	      { set_no_type_name true; result = CFloatType.new(-64) }
+        | BOOL
+	      { set_no_type_name true; result = CBoolType.new }
+        | struct_specifier
+	      { set_no_type_name true; result = val[0] } # set_no_type_name true は struct_tag でも呼ばれる
+        | union_specifier
+	      { set_no_type_name true; result = CVoidType.new }  # void が宣言されたとする
+        | enum_specifier
+	      { set_no_type_name true; result = CVoidType.new }  # void が宣言されたとする
+        | TYPE_NAME
+	      { set_no_type_name true; result = CDefinedType.new( val[0].val ) }
 
 # mikan K&Rのstruct_or_union_specifierに相当するが、unionは使えない, bit field にも対応しない
 struct_specifier		# mikan
-        : STRUCT struct_tag '{'
+#        : STRUCT struct_tag '{'
+        : struct_term struct_tag '{'
 		{ StructType.set_define( true )  }
 	   struct_declaration_list '}'
 		{
 			StructType.end_of_parse
 			result = val[1]
 		}
-        | STRUCT
+#        | STRUCT
+        | struct_term
 		{
 			result = CStructType.new()
 			StructType.set_define( true )
@@ -313,12 +358,16 @@ struct_specifier		# mikan
 			StructType.end_of_parse
 			result = val[1]
 		}
-        | STRUCT struct_tag   # mikan struct_tag は namespace 対応が必要
+#        | STRUCT struct_tag   # mikan struct_tag は namespace 対応が必要
+        | struct_term struct_tag   # mikan struct_tag は namespace 対応が必要
 		{
 			StructType.set_define( false )
 			StructType.end_of_parse
 			result = val[1]
 		}
+
+struct_term
+        : STRUCT { set_no_type_name true }
 
 struct_declaration_list
         : struct_declaration
@@ -381,9 +430,15 @@ struct_declarator
 
 
 union_specifier
-        : UNION union_tag '{' union_declaration_list '}'
-        | UNION '{' union_declaration_list '}'
-        | UNION union_tag   # mikan struct_tag は namespace 対応が必要
+#        : UNION union_tag '{' union_declaration_list '}'
+#        | UNION '{' union_declaration_list '}'
+#        | UNION union_tag   # mikan struct_tag は namespace 対応が必要
+        : union_term union_tag '{' union_declaration_list '}'
+        | union_term '{' union_declaration_list '}'
+        | union_term union_tag   # mikan struct_tag は namespace 対応が必要
+
+union_term
+        : UNION { set_no_type_name true }
 
 union_declaration_list
         : union_declaration
@@ -408,18 +463,15 @@ union_declarator
 
 
 # enumの種類を追加
-enum_specifier		# mikan
-        : enum_type            '{' enumerator_list '}'
-        | enum_type IDENTIFIER '{' enumerator_list '}'
-        | enum_type IDENTIFIER
-
-enum_type
-        : ENUM	{ result = CEnumType.new( -1 ) }
-#        | ENUM8	{ result = CEnumType.new( 8 ) }
-#        | ENUM16	{ result = CEnumType.new( 16 ) }
-#        | ENUM32	{ result = CEnumType.new( 32 ) }
-#        | ENUM64	{ result = CEnumType.new( 64 ) }
-#        | ENUM128	{ result = CEnumType.new( 128 ) }
+enum_specifier
+         : ENUM '{' enumerator_list '}'
+         | ENUM IDENTIFIER '{' enumerator_list '}'
+         | ENUM '{' enumerator_list ',' '}'
+         | ENUM IDENTIFIER '{' enumerator_list ',' '}'
+         | ENUM IDENTIFIER
+         | ENUM TYPE_NAME '{' enumerator_list '}'
+         | ENUM TYPE_NAME '{' enumerator_list ',' '}'
+         | ENUM TYPE_NAME
 
 enumerator_list
         : enumerator
@@ -433,6 +485,12 @@ type_qualifier
         : CONST	{ result = :CONST }
         | VOLATILE	{ result = :VOLATILE }
 
+function_specifier
+        : __INLINE__
+        | INLINE
+        | __INLINE
+        | CINLINE
+        
 declarator
         : pointer direct_declarator
 		{
@@ -550,9 +608,9 @@ abstract_declarator		# mikan
 direct_abstract_declarator
         : '(' abstract_declarator ')'
         | '[' ']'
-        | '[' constant_expression ']'
+        | '[' assignment_expression ']'
         | direct_abstract_declarator '[' ']'
-        | direct_abstract_declarator '[' constant_expression ']'
+        | direct_abstract_declarator '[' assignment_expression ']'
         | '(' ')'
 		{
 			Generator.warning( "W6003 need 'void' for no parameter"  )
@@ -566,7 +624,7 @@ direct_abstract_declarator
 
 # assignment_expressionをconstant_expressionに変更
 initializer			# mikan
-        : constant_expression
+        : assignment_expression
 		{ result = val[0] }
         | '{' initializer_list '}'
 		{ result = val[1] }
@@ -641,23 +699,7 @@ infunc_statement
         | compoundstatement
         | gotostatement
         | expressionstatement
-        | ';'
-
-ifstatement
-        : IF '(' expression ')' infunc_statement
-        | IF '(' expression ')' infunc_statement ELSE infunc_statement
-
-whilestatement
-        : WHILE '(' expression ')' infunc_statement
-
-dowhilestatement
-        : DO infunc_statement WHILE '(' expression ')' ';'
-
-forstatement
-        : FOR '(' expression ';' expression ';' expression ')' infunc_statement
-
-switchstatement
-        : SWITCH '(' expression ')'  infunc_statment
+        | asm_statement
 
 labelstatement
         : IDENTIFIER ':' infunc_statement
@@ -667,43 +709,57 @@ labelstatement
 compoundstatement
         : '{' infunc_statement_list '}'
 
+expressionstatement
+        : ';'
+        | expression ';'
+        # | unary_expression assignment_operator expression ';'
+
+ifstatement
+        : IF '(' expression ')' infunc_statement
+        | IF '(' expression ')' infunc_statement ELSE infunc_statement
+
+switchstatement
+        : SWITCH '(' expression ')'  compoundstatement
+
+whilestatement
+        : WHILE '(' expression ')' infunc_statement
+
+dowhilestatement
+        : DO infunc_statement WHILE '(' expression ')' ';'
+
+
+forstatement
+        : FOR '(' expressionstatement expressionstatement ')' infunc_statement
+        | FOR '(' expressionstatement expressionstatement expression ')' infunc_statement
+        | FOR '(' declaration expressionstatement ')' infunc_statement
+        | FOR '(' declaration expressionstatement expression ')' infunc_statement
+
 gotostatement
         : GOTO IDENTIFIER ';'
         | CONTINUE ';'
         | BREAK ';'
+        | RETURN ';'
         | RETURN expression ';'
-
-expressionstatement
-        : expression ';'
-        | unary_expression assignment_operator expression ';'
-
-assignment_operator
-        : '='
-        | '+='
-        | '-='
-        | '*='
-        | '/='
-        | '%='
-        | '<<='
-        | '>>='
-        | '&='
-        | '|='
-        | '^='
-
-storage_class
-        : __INLINE__
-        | INLINE
-        | __INLINE
-        | EXTERN
-        | STATIC
-        | AUTO
-        | REGISTER
 
 namespace_identifier
         : IDENTIFIER		{ result = NamespacePath.new( val[0].val, false ) }
         | '::' IDENTIFIER	{ result = NamespacePath.new( val[1].val, true ) }
         | namespace_identifier '::' IDENTIFIER
 		{ result = val[0].append!( val[2].val ) }
+
+asm_statement
+     : _ASM {
+        while true
+          # ';' が表れるまで、トークンを読み飛ばす。
+          # gcc の構文拡張に対応すべきだが、単純な実装として、';' まで読み飛ばす。
+          # トークン単位で読み飛ばしているので、文字列やコメント内の ';' は対象にならない。
+          token = next_token
+          if token[1].val == ";"
+            break
+          end
+		      # p "skip: #{token[1].val}" 
+        end
+      }
 
 end
 
@@ -750,10 +806,12 @@ end
     '__inline__'  => :__INLINE__,
     'inline'  => :INLINE,
     '__inline'  => :__INLINE,
+    'Inline'  => :CINLINE,        # inline starting with Capital letter
     'static'  => :STATIC,
     'register' => :REGISTER,
     'auto'    => :AUTO,
     '__extension__'    => :EXTENSION,
+    '__asm__' => :_ASM
 
   }
 
@@ -799,6 +857,7 @@ end
 
     @q = []
     comment = false
+#    b_asm   = false
 
     # euc のコメントを utf8 として扱うと、コメントの終わりを誤る問題の対策
     TECS_LANG::set_kcode_binary
@@ -866,6 +925,8 @@ end
               @q << [$&, Token.new($&, file, lineno, col)]
             when /\A::/, /\A==/, /\A!=/, /\A>=/, /\A<=/, /\A\->/, /\A\+\+/, /\A\-\-/
               @q << [$&, Token.new($&, file, lineno, col)]
+            when /\A\|\|/, /\A\&\&/
+              @q << [$&, Token.new($&, file, lineno, col)]
             when /\A./
               @q << [$&, Token.new($&, file, lineno, col)]
             else
@@ -917,6 +978,8 @@ end
       if @b_no_type_name == false
         if token[0] == :IDENTIFIER && Namespace.is_typename?( token[1].val ) then
           token[0] = :TYPE_NAME
+          locale = @@current_locale[@@generator_nest]
+#print( "#{locale[0]}: line #{locale[1]} : #{token[0]} '#{token[1].val}: type_name'\n" )
         end
       end
 
@@ -946,42 +1009,13 @@ end
     @@current_locale[ @@generator_nest ]
   end
 
-  @@n_error = 0
-  @@n_warning = 0
-
-  # このメソッドは構文解析、意味解析からのみ呼出し可（コード生成でエラー発生は不適切）
-  def self.error( msg )
-    @@n_error += 1
-    locale = @@current_locale[ @@generator_nest ]
-
-    if locale then
-      Console.puts "error: #{locale[0]}: line #{locale[1]} #{msg}"
-    else
-      Console.puts "error: #{msg}"
-    end
-  end
-
-  # このメソッドは構文解析、意味解析からのみ呼出し可（コード生成でウォーニング発生は不適切）
-  def self.warning( msg )
-    @@n_warning += 1
-    locale = @@current_locale[ @@generator_nest ]
-    Console.puts "warning: #{locale[0]}: line #{locale[1]} #{msg}"
-  end
-
-  def self.get_n_error
-    @@n_error
-  end
-
-  def self.get_n_warning
-    @@n_warning
-  end
-
   def self.get_nest
     @@generator_nest
   end
 
   def set_no_type_name b_no_type_name
-    # print "b_no_type_name=#{b_no_type_name}\n"
+    locale = @@current_locale[ @@generator_nest ]
+#print "b_no_type_name=#{b_no_type_name} #{locale[0]}: line #{locale[1]}\n"
     @b_no_type_name = b_no_type_name
   end
 

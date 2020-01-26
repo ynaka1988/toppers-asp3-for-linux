@@ -5,7 +5,7 @@
 #       Advanced Standard Profile Kernel
 # 
 #   Copyright (C) 2015 by FUJI SOFT INCORPORATED, JAPAN
-#   Copyright (C) 2015,2016 by Embedded and Real-Time Systems Laboratory
+#   Copyright (C) 2015-2019 by Embedded and Real-Time Systems Laboratory
 #               Graduate School of Information Science, Nagoya Univ., JAPAN
 # 
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 # 
-#   $Id: messagebuf.trb 588 2016-02-05 12:54:58Z ertl-hiro $
+#   $Id: messagebuf.trb 1167 2019-02-03 17:06:17Z ertl-hiro $
 # 
 
 #
@@ -50,37 +50,40 @@ class MessagebufObject < KernelObject
   end
 
   def prepare(key, params)
-    # mbfatrが無効の場合（E_RSATR）［NGKI3303］
+    # パラメータが省略された時のデフォルト値の設定
+    params[:mbfmb] ||= "NULL"
+
+    # mbfatrが無効の場合（E_RSATR）［NGKI3303］［NGKI3521］［NGKI3522］
     #（TA_NULLでない場合）
     if params[:mbfatr] != $TA_NULL
       error_illegal_id("E_RSATR", params, :mbfatr, :mbfid)
     end
 
-    # maxmszが0以下の場合（E_PAR）［NGKI3307］
-    if params[:maxmsz] <= 0
+    # maxmszが0の場合（E_PAR）［NGKI3307］
+    if params[:maxmsz] == 0
       error_illegal_id("E_PAR", params, :maxmsz, :mbfid)
     end
 
     # mbfmbがNULLでない場合（E_NOSPT）［ASPS0205］
     if params[:mbfmb] != "NULL"
-      error_illegal_id("E_PAR", params, :mbfmb, :mbfid)
+      error_illegal_id("E_NOSPT", params, :mbfmb, :mbfid)
     end
 
     # メッセージバッファ管理領域
     if params[:mbfsz] > 0
-      $kernelCfgC.add("static uint_t _kernel_mbfmb_#{params[:mbfid]}" \
-				"[TOPPERS_COUNT_SZ(#{params[:mbfsz]}, sizeof(uint_t))];")
+      mbfmbName = "_kernel_mbfmb_#{params[:mbfid]}"
+      $kernelCfgC.add("static MB_T #{mbfmbName}" \
+				"[TOPPERS_COUNT_SZ(#{params[:mbfsz]}, sizeof(MB_T))];")
+      params[:mbfinib_mbfmb] = mbfmbName
+    else
+      params[:mbfinib_mbfmb] = "NULL"
     end
   end
 
   def generateInib(key, params)
-    if params[:mbfsz] > 0
-      mbfmb = "_kernel_mbfmb_#{params[:mbfid]}"
-    else
-      mbfmb = "NULL"
-    end
     return("(#{params[:mbfatr]}), (#{params[:maxmsz]}), " \
-			"TOPPERS_ROUND_SZ(#{params[:mbfsz]}, sizeof(uint_t)), #{mbfmb}")
+				"TOPPERS_ROUND_SZ(#{params[:mbfsz]}, sizeof(MB_T)), " \
+				"#{params[:mbfinib_mbfmb]}")
   end
 end
 

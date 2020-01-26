@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2007-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2007-2016 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_cpuexc2.c 346 2015-07-18 02:12:08Z ertl-hiro $
+ *  $Id: test_cpuexc2.c 738 2016-04-05 14:19:24Z ertl-hiro $
  */
 
 /* 
@@ -78,7 +78,7 @@
  *		dis_dsp()
  *	2:	state(false, false, true, true, false)
  *		ipm(TIPM_ENAALL)
- *		sta_alm(ALM1, 10000U)
+ *		sta_alm(ALM1, TEST_TIME_PROC) ... ALM1が実行開始するまで
  *		DO(while(!alm1_flag))
  *	== ALM1 ==
  *	3:	state(true, false, true, true, false)
@@ -183,7 +183,7 @@ task1(intptr_t exinf)
 
 	check_ipm(TIPM_ENAALL);
 
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	while(!alm1_flag);

@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2008-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2008-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_mutex7.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_mutex7.c 882 2018-02-01 09:55:37Z ertl-hiro $
  */
 
 /* 
@@ -109,7 +109,6 @@
  * 【テストシーケンス】
  *
  *	== TASK1（優先度：高）==
- *		call(set_bit_func(bit_mutex))
  *	1:	act_tsk(TASK2)
  *	2:	slp_tsk()
  *	//		低：TASK2
@@ -132,7 +131,7 @@
  *	== TASK2-2（優先度：低）==
  *	9:	loc_mtx(MTX1)
  *	//		中：TASK2，低：TASK3，MTX1：TASK2
- *	10:	tslp_tsk(10000U) -> E_TMOUT
+ *	10:	tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK2-2が実行再開するまで
  *	//		低：TASK3，MTX1：TASK2
  *	== TASK3-1（優先度：低）==
  *	11:	loc_mtx(MTX1)
@@ -208,7 +207,7 @@
  *	33:	loc_mtx(MTX1)
  *		loc_mtx(MTX2)
  *	//		中：TASK2，低：TASK3→TASK4，MTX1：TASK2，MTX2：TASK2
- *	34:	tslp_tsk(10000U) -> E_TMOUT
+ *	34:	tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK2-5が実行再開するまで
  *	//		低：TASK3→TASK4，MTX1：TASK2，MTX2：TASK2
  *	== TASK3-3（優先度：低）==
  *	35:	loc_mtx(MTX1)
@@ -290,8 +289,6 @@
 #include "kernel_cfg.h"
 #include "test_mutex7.h"
 
-extern ER	bit_mutex(void);
-
 /* DO NOT DELETE THIS LINE -- gentest depends on it. */
 
 void
@@ -302,8 +299,6 @@ task1(intptr_t exinf)
 	T_RMTX	rmtx;
 
 	test_start(__FILE__);
-
-	set_bit_func(bit_mutex);
 
 	check_point(1);
 	ercd = act_tsk(TASK2);
@@ -497,7 +492,7 @@ task2(intptr_t exinf)
 		check_ercd(ercd, E_OK);
 
 		check_point(10);
-		ercd = tslp_tsk(10000U);
+		ercd = tslp_tsk(TEST_TIME_CP);
 		check_ercd(ercd, E_TMOUT);
 
 		check_point(12);
@@ -540,7 +535,7 @@ task2(intptr_t exinf)
 		check_ercd(ercd, E_OK);
 
 		check_point(34);
-		ercd = tslp_tsk(10000U);
+		ercd = tslp_tsk(2 * TEST_TIME_CP);
 		check_ercd(ercd, E_TMOUT);
 
 		check_point(37);

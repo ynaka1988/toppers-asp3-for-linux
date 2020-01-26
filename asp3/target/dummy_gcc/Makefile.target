@@ -1,7 +1,7 @@
 #
 #		Makefile のターゲット依存部（ダミーターゲット用）
 #
-#  $Id: Makefile.target 572 2016-02-01 14:40:09Z ertl-hiro $
+#  $Id: Makefile.target 1053 2018-11-19 14:15:34Z ertl-hiro $
 # 
 
 #
@@ -44,9 +44,19 @@ SYSSVC_COBJS := $(SYSSVC_COBJS)
 CFG_TABS := $(CFG_TABS) --symval-table $(TARGETDIR)/target_sym.def
 
 #
-#  トレースログ記録のサンプルコードに関する定義
+#  オフセットファイル生成のための定義
 #
-ifdef ENABLE_TRACE
-	COPTS := $(COPTS) -DTOPPERS_ENABLE_TRACE
-	SYSSVC_DIRS := $(SYSSVC_DIRS) $(SRCDIR)/arch/tracelog
-endif
+TARGET_OFFSET_TRB = $(TARGETDIR)/target_offset.trb
+
+#
+#  スタートアップモジュールに関する定義
+#
+#  START_OBJSをstart.oに設定し，LDFLAGSに-nostdlibを追加する．
+#
+START_OBJS := start.o
+START_OBJS := $(addprefix $(OBJDIR)/, $(START_OBJS))
+
+$(START_OBJS): $(OBJDIR)/%.o: %.c
+	$(CC) -c -o $@ -MD -MP -MF $(DEPDIR)/$*.d $(CFLAGS) $(KERNEL_CFLAGS) $<
+
+LDFLAGS := -nostdlib $(LDFLAGS)

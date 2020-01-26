@@ -1,11 +1,10 @@
 /*
- *  TOPPERS/ASP Kernel
- *      Toyohashi Open Platform for Embedded Real-Time Systems/
- *      Advanced Standard Profile Kernel
+ *  TOPPERS Software
+ *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2006-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2006-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +36,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tSerialPortMain.c 527 2016-01-14 11:43:45Z ertl-hiro $
+ *  $Id: tSerialPortMain.c 1224 2019-06-27 05:32:01Z ertl-hiro $
  */
 
 /*
@@ -241,12 +240,12 @@ eSerialPort_close(CELLIDX idx)
 }
 
 /*
- *  シリアルポートへの文字送信
+ *  SIOポートへの文字送信
  *
- *  p_cellcbで指定されるSIOポートに対して，文字cを送信する．文字を送信
- *  レジスタにいれた場合にはtrueを返す．そうでない場合には，送信レジス
- *  タが空いたことを通知するコールバック関数を許可し，falseを返す．この
- *  関数は，CPUロック状態で呼び出される．
+ *  p_cellcbで指定されるシリアルポートに対応するSIOポートに対して，文
+ *  字cを送信する．文字を送信レジスタにいれた場合にはtrueを返す．そう
+ *  でない場合には，送信レジスタが空いたことを通知するコールバック関数
+ *  を許可し，falseを返す．この関数は，CPUロック状態で呼び出される．
  */
 Inline bool_t
 serialPort_sendChar(CELLCB *p_cellcb, char c)
@@ -267,7 +266,8 @@ static ER_BOOL
 serialPort_writeChar(CELLCB *p_cellcb, char c)
 {
 	bool_t	buffer_full;
-	ER		ercd, rercd;
+	ER_BOOL	ercd;
+	ER		rercd;
 
 	/*
 	 *  LFの前にCRを送信する．
@@ -358,11 +358,11 @@ eSerialPort_write(CELLIDX idx, const char *buffer, uint_t length)
 /*
  *  シリアルポートからの1文字受信
  */
-static bool_t
+static ER_BOOL
 serialPort_readChar(CELLCB *p_cellcb, char *p_c)
 {
 	bool_t	buffer_empty;
-	ER		ercd;
+	ER_BOOL	ercd;
 
 	SVC(loc_cpu(), gen_ercd_sys(p_cellcb));
 
@@ -518,7 +518,7 @@ eiSIOCBR_readySend(CELLIDX idx)
 	p_cellcb = GET_CELLCB(idx);
 	if (VAR_receiveFlowControl != '\0') {
 		/*
-		 *  START/STOP を送信する．
+		 *  START/STOPを送信する．
 		 */
 		(void) cSIOPort_putChar(VAR_receiveFlowControl);
 		VAR_receiveFlowControl = '\0';
@@ -568,7 +568,7 @@ eiSIOCBR_readyReceive(CELLIDX idx)
 		 *  送信を再開する．
 		 */
 		VAR_sendStopped = false;
-		if (VAR_sendCount > 0U) {
+		while (VAR_sendCount > 0U) {
 			c = VAR_sendBuffer[VAR_sendReadPointer];
 			if (serialPort_sendChar(p_cellcb, c)) {
 				INC_PTR(VAR_sendReadPointer, ATTR_sendBufferSize);
@@ -579,11 +579,14 @@ eiSIOCBR_readyReceive(CELLIDX idx)
 				}
 				VAR_sendCount--;
 			}
+			else {
+				break;
+			}
 		}
 	}
 	else if ((VAR_ioControl & IOCTL_FCSND) != 0U && c == FC_START) {
 		/*
-		 *  送信に対してフロー制御している場合，START は捨てる．
+		 *  送信に対してフロー制御している場合，STARTは捨てる．
 		 */
 	}
 	else if (VAR_receiveCount == ATTR_receiveBufferSize) {

@@ -3,8 +3,7 @@ PACKAGE asp3
 MANIFEST
 Makefile.target
 dummy.h
-tPutLogDummy.c
-tPutLogDummy.cdl
+start.c
 tSIOPortDummy.cdl
 tSIOPortDummyMain.c
 target.cdl

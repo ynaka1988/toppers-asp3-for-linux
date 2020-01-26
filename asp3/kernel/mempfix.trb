@@ -5,7 +5,7 @@
 #       Advanced Standard Profile Kernel
 # 
 #   Copyright (C) 2015 by FUJI SOFT INCORPORATED, JAPAN
-#   Copyright (C) 2015,2016 by Embedded and Real-Time Systems Laboratory
+#   Copyright (C) 2015-2019 by Embedded and Real-Time Systems Laboratory
 #               Graduate School of Information Science, Nagoya Univ., JAPAN
 # 
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 # 
-#   $Id: mempfix.trb 588 2016-02-05 12:54:58Z ertl-hiro $
+#   $Id: mempfix.trb 1167 2019-02-03 17:06:17Z ertl-hiro $
 # 
 
 #
@@ -50,47 +50,51 @@ class MempfixObject < KernelObject
   end
 
   def prepare(key, params)
-    # mpfatrが無効の場合（E_RSATR）［NGKI2225］
+    # パラメータが省略された時のデフォルト値の設定
+    params[:mpf] ||= "NULL"
+    params[:mpfmb] ||= "NULL"
+
+    # mpfatrが無効の場合（E_RSATR）［NGKI2225］［NGKI2218］
     #（TA_TPRI以外のビットがセットされている場合）
     if (params[:mpfatr] & ~($TA_TPRI)) != 0
       error_illegal_id("E_RSATR", params, :mpfatr, :mpfid)
     end
 
-    # blkcntが0以下の場合（E_PAR）［NGKI2229］
-    if params[:blkcnt] <= 0
+    # blkcntが0の場合（E_PAR）［NGKI2229］
+    if params[:blkcnt] == 0
       error_illegal_id("E_PAR", params, :blkcnt, :mpfid)
     end
 
-    # blkszが0以下の場合（E_PAR）［NGKI2230］
-    if params[:blksz] <= 0
+    # blkszが0の場合（E_PAR）［NGKI2230］
+    if params[:blksz] == 0
       error_illegal_id("E_PAR", params, :blksz, :mpfid)
     end
 
     # 固定長メモリプール領域
     if params[:mpf] == "NULL"
-      $kernelCfgC.add("static MPF_T _kernel_mpf_#{params[:mpfid]}" \
+      mpfName = "_kernel_mpf_#{params[:mpfid]}"
+      $kernelCfgC.add("static MPF_T #{mpfName}" \
 				"[#{params[:blkcnt]} * COUNT_MPF_T(#{params[:blksz]})];")
+      params[:mpfinib_mpf] = mpfName
+    else
+      params[:mpfinib_mpf] = "(void *)(#{params[:mpf]})"
     end
 
     # mpfmbがNULLでない場合（E_NOSPT）［ASPS0166］
     if params[:mpfmb] != "NULL"
-      error_illegal_id("E_PAR", params, :mpfmb, :mpfid)
+      error_illegal_id("E_NOSPT", params, :mpfmb, :mpfid)
     end
 
     # 固定長メモリプール管理領域
-    $kernelCfgC.add("static MPFMB _kernel_mpfmb_#{params[:mpfid]}" \
-												"[#{params[:blkcnt]}];")
+    mpfmbName = "_kernel_mpfmb_#{params[:mpfid]}"
+    $kernelCfgC.add("static MPFMB #{mpfmbName}[#{params[:blkcnt]}];")
+    params[:mpfinib_mpfmb] = mpfmbName
   end
 
   def generateInib(key, params)
-    if params[:mpf] == "NULL"
-      mpf = "_kernel_mpf_#{params[:mpfid]}"
-    else
-      mpf = "(void *)(#{params[:mpf]})"
-    end
     return("(#{params[:mpfatr]}), (#{params[:blkcnt]}), " \
-					"ROUND_MPF_T(#{params[:blksz]}), #{mpf}, " \
-					"_kernel_mpfmb_#{params[:mpfid]}")
+			"ROUND_MPF_T(#{params[:blksz]}), #{params[:mpfinib_mpf]}, " \
+			"#{params[:mpfinib_mpfmb]}")
   end
 end
 

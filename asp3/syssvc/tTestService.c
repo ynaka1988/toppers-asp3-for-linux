@@ -1,9 +1,8 @@
 /*
- *  TOPPERS/ASP Kernel
- *      Toyohashi Open Platform for Embedded Real-Time Systems/
- *      Advanced Standard Profile Kernel
+ *  TOPPERS Software
+ *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2016 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2016-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tTestService.c 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tTestService.c 924 2018-03-24 08:35:50Z ertl-hiro $
  */
 
 /*
@@ -49,27 +48,14 @@
 #include <t_stdlib.h>
 
 /*
- *	自己診断関数の型
- */
-typedef ER (*BIT_FUNC)(void);
-
-/*
  *  テストプログラムの開始（受け口関数）
  */
-void
+ER
 eTestService_start(const char *progname)
 {
 	syslog_1(LOG_NOTICE, "Test program: %s", progname);
 	VAR_check_count = 0U;
-}
-
-/*
- *	自己診断関数の設定
- */
-void
-eTestService_setBuiltInTest(const void *bit_func)
-{
-	VAR_bit_func = bit_func;
+	return(E_OK);
 }
 
 /*
@@ -91,7 +77,7 @@ test_finish(void)
 /*
  *	チェックポイント（受け口関数）
  */
-void
+ER
 eTestService_checkPoint(uint_t count)
 {
 	bool_t	errorflag = false;
@@ -110,18 +96,18 @@ eTestService_checkPoint(uint_t count)
 		syslog_1(LOG_NOTICE, "Check point %d passed.", count);
 	}
 	else {
-		syslog_1(LOG_ERROR, "## Unexpected check point %d.", count);
+		syslog_1(LOG_ERROR, "## Unexpected check point %d.\007", count);
 		errorflag = true;
 	}
 
 	/*
 	 *  カーネルの内部状態の検査
 	 */
-	if (VAR_bit_func != NULL) {
-		rercd = ((BIT_FUNC) VAR_bit_func)();
+	if (is_cBuiltInTest_joined()) {
+		rercd = cBuiltInTest_builtInTest();
 		if (rercd < 0) {
-			syslog_2(LOG_ERROR, "## Internal inconsistency detected (%s, %d).",
-								itron_strerror(rercd), SERCD(rercd));
+			syslog_2(LOG_ERROR, "## Internal inconsistency detected (%s, %d)."
+								"\007", itron_strerror(rercd), SERCD(rercd));
 			errorflag = true;
 		}
 	}
@@ -137,12 +123,13 @@ eTestService_checkPoint(uint_t count)
 	 *  割込みロック状態を解除
 	 */
 	SIL_UNL_INT();
+	return(E_OK);
 }
 
 /*
  *	完了チェックポイント（受け口関数）
  */
-void
+ER
 eTestService_finishPoint(uint_t count)
 {
 	if (count > 0U) {
@@ -150,32 +137,35 @@ eTestService_finishPoint(uint_t count)
 		syslog_0(LOG_NOTICE, "All check points passed.");
 	}
 	test_finish();
+	return(E_OK);
 }
 
 /*
  *	条件チェックのエラー処理（受け口関数）
  */
-void
+ER
 eTestService_assertError(const char *expr, const char *file, int_t line)
 {
-	syslog_3(LOG_ERROR, "## Assertion `%s' failed at %s:%u.",
-								expr, file, line);
+	syslog_3(LOG_ERROR, "## Assertion `%s' failed at %s:%u.\007",
+												expr, file, line);
 	test_finish();
+	return(E_OK);
 }
 
 /*
  *	エラーコードチェックのエラー処理（受け口関数）
  */
-void
+ER
 eTestService_serviceError(ER ercd, const char *file, int_t line)
 {
-	syslog_3(LOG_ERROR, "## Unexpected error %s detected at %s:%u.",
-								itron_strerror(ercd), file, line);
+	syslog_3(LOG_ERROR, "## Unexpected error %s detected at %s:%u.\007",
+										itron_strerror(ercd), file, line);
 	test_finish();
+	return(E_OK);
 }
 
 /*
- *	エラーコードチェックのエラー処理（受け口関数）
+ *	割込み優先度マスクの取得（受け口関数）
  */
 ER
 eTestService_getInterruptPriorityMask(PRI *p_ipm)

@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2007-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2007-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_mutex3.c 310 2015-02-08 13:46:46Z ertl-hiro $
+ *  $Id: test_mutex3.c 882 2018-02-01 09:55:37Z ertl-hiro $
  */
 
 /* 
@@ -76,7 +76,6 @@
  * 【テストシーケンス】
  *
  *	== TASK1（優先度：低）==
- *		call(set_bit_func(bit_mutex))
  *	1:	ref_mtx(MTX1, &rmtx)
  *		assert(rmtx.htskid == TSK_NONE)
  *		assert(rmtx.wtskid == TSK_NONE)
@@ -89,7 +88,7 @@
  *		assert(rmtx.htskid == TASK1)
  *		assert(rmtx.wtskid == TSK_NONE)
  *		act_tsk(TASK2)
- *	4:	tslp_tsk(10000U) -> E_TMOUT
+ *	4:	tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2（優先度：中）==
  *	5:	ploc_mtx(MTX1) -> E_TMOUT		... (C-1)
  *		loc_mtx(MTX1)					... (A-3)
@@ -98,7 +97,7 @@
  *		assert(rmtx.htskid == TASK1)
  *		assert(rmtx.wtskid == TASK2)
  *		act_tsk(TASK3)
- *	7:	tslp_tsk(10000U) -> E_TMOUT
+ *	7:	tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK3（優先度：高）==
  *	8:	unl_mtx(MTX1) -> E_OBJ			... (B-1)
  *	9:	loc_mtx(MTX1)					... (A-3)
@@ -128,7 +127,8 @@
  *	16:	ref_mtx(MTX1, &rmtx)
  *		assert(rmtx.htskid == TASK2)
  *		assert(rmtx.wtskid == TSK_NONE)
- *		tloc_mtx(MTX1, 10000U) -> E_TMOUT	... (D-1)
+ *		tloc_mtx(MTX1, 3 * TEST_TIME_CP) -> E_TMOUT	... (D-1)
+ *									... TASK1が実行再開するまで
  *	17:	wup_tsk(TASK2)
  *	== TASK2（続き）==
  *	18:	unl_mtx(MTX1)					... (B-2)
@@ -143,8 +143,6 @@
 #include "kernel_cfg.h"
 #include "test_mutex.h"
 
-extern ER	bit_mutex(void);
-
 /* DO NOT DELETE THIS LINE -- gentest depends on it. */
 
 void
@@ -155,8 +153,6 @@ task1(intptr_t exinf)
 	T_RMTX	rmtx;
 
 	test_start(__FILE__);
-
-	set_bit_func(bit_mutex);
 
 	check_point(1);
 	ercd = ref_mtx(MTX1, &rmtx);
@@ -192,7 +188,7 @@ task1(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(4);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(6);
@@ -207,7 +203,7 @@ task1(intptr_t exinf)
 	check_ercd(ercd, E_OK);
 
 	check_point(7);
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(10);
@@ -250,7 +246,7 @@ task1(intptr_t exinf)
 
 	check_assert(rmtx.wtskid == TSK_NONE);
 
-	ercd = tloc_mtx(MTX1, 10000U);
+	ercd = tloc_mtx(MTX1, 3 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(17);

@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: tKernel_inline.h 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: tKernel_inline.h 974 2018-05-05 07:42:46Z ertl-hiro $
  */
 
 #ifndef TOPPERS_TKERNEL_INLINE_H
@@ -184,8 +184,9 @@ eKernel_getLoad(PRI taskPriority, uint_t* p_load)
 Inline ER
 eKernel_getNthTask(PRI taskPriority, uint_t nth, ID* p_taskID)
 {
-	return (get_nth(taskPriority, nth, p_taskID));
+	return(get_nth(taskPriority, nth, p_taskID));
 }
+
 /*
  *  CPUロック状態への遷移
  */

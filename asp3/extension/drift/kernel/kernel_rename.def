@@ -50,7 +50,7 @@ tmevt_down
 update_current_evttim
 set_hrt_event
 tmevtb_register
-tmevtb_enqueue
+tmevtb_enqueue_reltim
 tmevtb_dequeue
 check_adjtim
 tmevt_lefttim
@@ -108,8 +108,10 @@ initialize_exception
 
 # kernel_cfg.c
 initialize_object
-call_inirtn
-call_terrtn
+tnum_inirtn
+inirtnb_table
+tnum_terrtn
+terrtnb_table
 tmax_tskid
 tinib_table
 torder_table
@@ -148,5 +150,13 @@ tmevt_heap
 istksz
 istk
 istkpt
+
+# tTraceLog.c
+log_dsp_enter
+log_dsp_leave
+log_inh_enter
+log_inh_leave
+log_exc_enter
+log_exc_leave
 
 INCLUDE "target"

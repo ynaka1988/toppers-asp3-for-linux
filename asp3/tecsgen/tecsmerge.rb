@@ -5,7 +5,7 @@
 #  TECS merger
 #      Merger for TECS generated templates
 #  
-#   Copyright (C) 2008-2015 by TOPPERS Project
+#   Copyright (C) 2008-2017 by TOPPERS Project
 #--
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
 #   ア（本ソフトウェアを改変したものを含む．以下同じ）を使用・複製・改
@@ -36,14 +36,14 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 #  
-#   $Id: tecsmerge.rb 2224 2015-08-22 03:15:56Z okuma-top $
+#   $Id: tecsmerge.rb 2633 2017-04-02 06:02:05Z okuma-top $
 #++
 
 #= tecsgen  : TECS のマージャ
 #
 #Authors::   大山 博司
 #Version::   
-#Copyright:: Copyright (C) TOPPERS Project, 2008-2015. All rights reserved.
+#Copyright:: Copyright (C) TOPPERS Project, 2008-2017. All rights reserved.
 #License::   TOPPERS ライセンスに準拠
 
 =begin
@@ -284,6 +284,11 @@ class CDLContents
       @@DELIMITERS.each { |next_stat,stat_info|
 
         next if next_stat == :HEAD || ( next_stat == :EOF && line != nil )
+        # #1002 tecsmerge の非受け口関数 (POSTAMBLE部) の行頭に '{' があるとエラーになる 	
+        if (! $old_mode) && ( /^\{/ =~ line ) && ( stat == :PREAMBLE_BODY || stat == :POSTAMBLE_BODY )
+          # p line + "  next_stat=" + next_stat.to_s + "stat=" + stat.to_s
+          next
+        end
 
         # p "R: #{stat_info[0]}"
         if stat_info[2] =~ line || ( line == nil && next_stat == :EOF ) then

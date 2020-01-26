@@ -37,7 +37,11 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target.cdl 509 2016-01-12 06:06:14Z ertl-hiro $
+ *  $Id: target.cdl 1072 2018-11-25 01:29:26Z ertl-hiro $
+ */
+
+/*
+ *		コンポーネント記述ファイルのターゲット依存部（ダミーターゲット用）
  */
 
 /*
@@ -59,7 +63,7 @@ const char *const BannerCopyrightNotice = "";			/* 著作権表示 */
 /*
  *  ターゲット依存のセルタイプの定義
  */
-import("tPutLogDummy.cdl");
+import("syssvc/tPutLogSIOPort.cdl");
 import("tSIOPortDummy.cdl");
 
 /*
@@ -74,7 +78,7 @@ cell tSIOPortDummy SIOPortTarget1 {
 /*
  *  低レベル出力の組み上げ記述
  */
-cell tPutLogDummy PutLogTarget {
+cell tPutLogSIOPort PutLogTarget {
 	/* SIOドライバとの結合 */
 	cSIOPort = SIOPortTarget1.eSIOPort;
 };

@@ -2,7 +2,7 @@
  *  TOPPERS Software
  *      Toyohashi Open Platform for Embedded Real-Time Systems
  * 
- *  Copyright (C) 2014-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2014-2017 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -34,7 +34,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_raster2.c 603 2016-02-07 12:42:10Z ertl-hiro $
+ *  $Id: test_raster2.c 1137 2019-01-04 01:42:50Z ertl-hiro $
  */
 
 /* 
@@ -89,8 +89,6 @@
  *		(I-1) 自タスクが実行可能状態から休止状態に［NGKI1178］
  *	(J) chg_ipmによるタスク終了［NGKI3683］
  *		(J-1) 自タスクが実行可能状態から休止状態に［NGKI1178］
- *	ASPカーネルに適用されない要求：
- *		［NGKI3764］［NGKI3765］［NGKI3497］
  *
  * 【使用リソース】
  *
@@ -103,7 +101,8 @@
  * 【テストシーケンス】
  *
  *	== TASK1 ==
- *	1:	sta_alm(ALM1, 10000U)
+ *	1:	sta_alm(ALM1, TEST_TIME_PROC * 2) ... ALM1-1が実行開始するまで
+ *										  ... * 2 しないと，時々エラーになる
  *		slp_tsk()
  *	== ALM1-1（1回目）==
  *	2:	dis_ter() -> E_CTX							... (A-1)
@@ -136,7 +135,7 @@
  *		wup_tsk(TASK1)
  *	== TASK1（続き）==
  *	8:	ras_ter(TASK2)
- *		tslp_tsk(10000U) -> E_TMOUT
+ *		tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-1（続き）==
  *	9:	ena_ter()									... (E-1)
  *	== TASK1（続き）==
@@ -186,14 +185,14 @@
  *		wup_tsk(TASK1)
  *	== TASK1（続き）==
  *	24:	ras_ter(TASK2)
- *		tslp_tsk(10000U) -> E_TMOUT
+ *		tslp_tsk(2 * TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-4（続き）==
  *	25:	ena_ter()									... (F-3)
  *	== TASK2-5（5回目）==
  *	26:	dis_ter()
  *		DO(while(true))
  *	== TASK1（続き）==
- *	27:	sta_alm(ALM1, 10000U)
+ *	27:	sta_alm(ALM1, TEST_TIME_PROC) ... ALM1-2が実行開始するまで
  *		slp_tsk()
  *	== ALM1-2（2回目）==
  *	28:	assert(sns_ter() == true)					... (H-1)
@@ -202,12 +201,12 @@
  *	== TASK1（続き）==
  *	29:	ter_tsk(TASK2)
  *		act_tsk(TASK2)
- *		tslp_tsk(10000U) -> E_TMOUT
+ *		tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-6（6回目）==
  *	30:	ena_ter()
  *		DO(while(true))
  *	== TASK1（続き）==
- *	31:	sta_alm(ALM1, 10000U)
+ *	31:	sta_alm(ALM1, TEST_TIME_PROC) ... ALM1-3が実行開始するまで
  *		slp_tsk()
  *	== ALM1-3（3回目）==
  *	32:	assert(sns_ter() == false)					... (H-2)
@@ -222,7 +221,7 @@
  *		wup_tsk(TASK1)
  *	== TASK1（続き）==
  *	35:	ras_ter(TASK2)
- *		tslp_tsk(10000U) -> E_TMOUT
+ *		tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-7（続き）==
  *	36:	dis_dsp()
  *		ena_ter()
@@ -237,7 +236,7 @@
  *		wup_tsk(TASK1)
  *	== TASK1（続き）==
  *	40:	ras_ter(TASK2)
- *		tslp_tsk(10000U) -> E_TMOUT
+ *		tslp_tsk(TEST_TIME_CP) -> E_TMOUT ... TASK1が実行再開するまで
  *	== TASK2-8（続き）==
  *	41:	chg_ipm(TMAX_INTPRI)
  *		ena_ter()
@@ -318,7 +317,7 @@ task1(intptr_t exinf)
 	test_start(__FILE__);
 
 	check_point(1);
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC * 2);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();
@@ -380,7 +379,7 @@ task1(intptr_t exinf)
 	ercd = ras_ter(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(10);
@@ -449,11 +448,11 @@ task1(intptr_t exinf)
 	ercd = ras_ter(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(2 * TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(27);
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();
@@ -466,11 +465,11 @@ task1(intptr_t exinf)
 	ercd = act_tsk(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(31);
-	ercd = sta_alm(ALM1, 10000U);
+	ercd = sta_alm(ALM1, TEST_TIME_PROC);
 	check_ercd(ercd, E_OK);
 
 	ercd = slp_tsk();
@@ -490,7 +489,7 @@ task1(intptr_t exinf)
 	ercd = ras_ter(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(37);
@@ -510,7 +509,7 @@ task1(intptr_t exinf)
 	ercd = ras_ter(TASK2);
 	check_ercd(ercd, E_OK);
 
-	ercd = tslp_tsk(10000U);
+	ercd = tslp_tsk(TEST_TIME_CP);
 	check_ercd(ercd, E_TMOUT);
 
 	check_point(42);

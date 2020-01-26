@@ -5,7 +5,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2005-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2005-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -37,7 +37,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: mempfix.c 471 2015-12-30 10:03:16Z ertl-hiro $
+ *  $Id: mempfix.c 1012 2018-10-18 13:31:53Z ertl-hiro $
  */
 
 /*
@@ -210,24 +210,30 @@ acre_mpf(const T_CMPF *pk_cmpf)
 	MPFCB	*p_mpfcb;
 	MPFINIB	*p_mpfinib;
 	ATR		mpfatr;
-	void	*mpf;
+	uint_t	blkcnt;
+	uint_t	blksz;
+	MPF_T	*mpf;
 	MPFMB	*p_mpfmb;
 	ER		ercd;
 
 	LOG_ACRE_MPF_ENTER(pk_cmpf);
 	CHECK_TSKCTX_UNL();
-	CHECK_RSATR(pk_cmpf->mpfatr, TA_TPRI);
-	CHECK_PAR(pk_cmpf->blkcnt != 0);
-	CHECK_PAR(pk_cmpf->blksz != 0);
-	if (pk_cmpf->mpf != NULL) {
-		CHECK_PAR(MPF_ALIGN(pk_cmpf->mpf));
-	}
-	if (pk_cmpf->mpfmb != NULL) {
-		CHECK_PAR(MB_ALIGN(pk_cmpf->mpfmb));
-	}
+
 	mpfatr = pk_cmpf->mpfatr;
+	blkcnt = pk_cmpf->blkcnt;
+	blksz = pk_cmpf->blksz;
 	mpf = pk_cmpf->mpf;
 	p_mpfmb = pk_cmpf->mpfmb;
+
+	CHECK_VALIDATR(mpfatr, TA_TPRI);
+	CHECK_PAR(blkcnt != 0);
+	CHECK_PAR(blksz != 0);
+	if (mpf != NULL) {
+		CHECK_PAR(MPF_ALIGN(mpf));
+	}
+	if (p_mpfmb != NULL) {
+		CHECK_PAR(MB_ALIGN(p_mpfmb));
+	}
 
 	lock_cpu();
 	if (tnum_mpf == 0 || queue_empty(&free_mpfcb)) {
@@ -235,7 +241,7 @@ acre_mpf(const T_CMPF *pk_cmpf)
 	}
 	else {
 		if (mpf == NULL) {
-			mpf = kernel_malloc(ROUND_MPF_T(pk_cmpf->blksz) * pk_cmpf->blkcnt);
+			mpf = malloc_mpk(ROUND_MPF_T(blksz) * blkcnt);
 			mpfatr |= TA_MEMALLOC;
 		}
 		if (mpf == NULL) {
@@ -243,12 +249,12 @@ acre_mpf(const T_CMPF *pk_cmpf)
 		}
 		else {
 			if (p_mpfmb == NULL) {
-				p_mpfmb = kernel_malloc(sizeof(MPFMB) * pk_cmpf->blkcnt);
+				p_mpfmb = malloc_mpk(sizeof(MPFMB) * blkcnt);
 				mpfatr |= TA_MBALLOC;
 			}
 			if (p_mpfmb == NULL) {
 				if (pk_cmpf->mpf == NULL) {
-					kernel_free(mpf);
+					free_mpk(mpf);
 				}
 				ercd = E_NOMEM;
 			}
@@ -256,8 +262,8 @@ acre_mpf(const T_CMPF *pk_cmpf)
 				p_mpfcb = ((MPFCB *) queue_delete_next(&free_mpfcb));
 				p_mpfinib = (MPFINIB *)(p_mpfcb->p_mpfinib);
 				p_mpfinib->mpfatr = mpfatr;
-				p_mpfinib->blkcnt = pk_cmpf->blkcnt;
-				p_mpfinib->blksz = ROUND_MPF_T(pk_cmpf->blksz);
+				p_mpfinib->blkcnt = blkcnt;
+				p_mpfinib->blksz = ROUND_MPF_T(blksz);
 				p_mpfinib->mpf = mpf;
 				p_mpfinib->p_mpfmb = p_mpfmb;
 
@@ -306,10 +312,10 @@ del_mpf(ID mpfid)
 		init_wait_queue(&(p_mpfcb->wait_queue));
 		p_mpfinib = (MPFINIB *)(p_mpfcb->p_mpfinib);
 		if ((p_mpfinib->mpfatr & TA_MEMALLOC) != 0U) {
-			kernel_free(p_mpfinib->mpf);
+			free_mpk(p_mpfinib->mpf);
 		}
 		if ((p_mpfinib->mpfatr & TA_MBALLOC) != 0U) {
-			kernel_free(p_mpfinib->p_mpfmb);
+			free_mpk(p_mpfinib->p_mpfmb);
 		}
 		p_mpfinib->mpfatr = TA_NOEXS;
 		queue_insert_prev(&free_mpfcb, &(p_mpfcb->wait_queue));
@@ -335,9 +341,9 @@ del_mpf(ID mpfid)
 ER
 get_mpf(ID mpfid, void **p_blk)
 {
-	MPFCB	*p_mpfcb;
-	WINFO_MPF winfo_mpf;
-	ER		ercd;
+	MPFCB		*p_mpfcb;
+	WINFO_MPF	winfo_mpf;
+	ER			ercd;
 
 	LOG_GET_MPF_ENTER(mpfid, p_blk);
 	CHECK_DISPATCH();
@@ -356,8 +362,8 @@ get_mpf(ID mpfid, void **p_blk)
 		ercd = E_OK;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_MPF;
-		wobj_make_wait((WOBJCB *) p_mpfcb, (WINFO_WOBJ *) &winfo_mpf);
+		wobj_make_wait((WOBJCB *) p_mpfcb, TS_WAITING_MPF,
+											(WINFO_WOBJ *) &winfo_mpf);
 		dispatch();
 		ercd = winfo_mpf.winfo.wercd;
 		if (ercd == E_OK) {
@@ -417,10 +423,10 @@ pget_mpf(ID mpfid, void **p_blk)
 ER
 tget_mpf(ID mpfid, void **p_blk, TMO tmout)
 {
-	MPFCB	*p_mpfcb;
-	WINFO_MPF winfo_mpf;
-	TMEVTB	tmevtb;
-	ER		ercd;
+	MPFCB		*p_mpfcb;
+	WINFO_MPF	winfo_mpf;
+	TMEVTB		tmevtb;
+	ER			ercd;
 
 	LOG_TGET_MPF_ENTER(mpfid, p_blk, tmout);
 	CHECK_DISPATCH();
@@ -443,9 +449,8 @@ tget_mpf(ID mpfid, void **p_blk, TMO tmout)
 		ercd = E_TMOUT;
 	}
 	else {
-		p_runtsk->tstat = TS_WAITING_MPF;
-		wobj_make_wait_tmout((WOBJCB *) p_mpfcb, (WINFO_WOBJ *) &winfo_mpf,
-														&tmevtb, tmout);
+		wobj_make_wait_tmout((WOBJCB *) p_mpfcb, TS_WAITING_MPF,
+								(WINFO_WOBJ *) &winfo_mpf, &tmevtb, tmout);
 		dispatch();
 		ercd = winfo_mpf.winfo.wercd;
 		if (ercd == E_OK) {

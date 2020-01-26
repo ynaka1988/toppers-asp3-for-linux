@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2013-2016 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2013-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_kernel_impl.h 515 2016-01-13 02:21:39Z ertl-hiro $
+ *  $Id: target_kernel_impl.h 1127 2018-12-20 16:48:57Z ertl-hiro $
  */
 
 /*
@@ -67,14 +67,9 @@
 #define CHECK_STACK_NONNULL		/* スタック領域の非NULLチェック */
 #define CHECK_MPF_ALIGN		4	/* 固定長メモリプール領域のアライン単位 */
 #define CHECK_MPF_NONNULL		/* 固定長メモリプール領域の非NULLチェック */
+#define CHECK_MPK_ALIGN		4	/* カーネルメモリプール領域のアライン単位 */
+#define CHECK_MPK_NONNULL		/* カーネルメモリプール領域の非NULLチェック */
 #define CHECK_MB_ALIGN		4	/* 管理領域のアライン単位 */
-
-/*
- *  トレースログに関する設定
- */
-#ifdef TOPPERS_ENABLE_TRACE
-#include "arch/tracelog/trace_log.h"
-#endif /* TOPPERS_ENABLE_TRACE */
 
 /*
  *  トレースログマクロのデフォルト定義
@@ -187,25 +182,35 @@ t_get_ipm(void)
 #define VALID_EXCNO(excno)	(0U <= (excno) && (excno) <= 7U)
 
 /*
- *  割込み要求禁止フラグのセット
- *
- *  割込み属性が設定されていない割込み要求ラインに対して割込み要求禁止
- *  フラグをセットしようとした場合には，falseを返す．
+ *  割込み属性の設定のチェック
  */
 Inline bool_t
-disable_int(INTNO intno)
+check_intno_cfg(INTNO intno)
 {
 	return(true);
 }
 
 /*
+ *  割込み要求禁止フラグのセット
+ */
+Inline void
+disable_int(INTNO intno)
+{
+}
+
+/*
  *  割込み要求禁止フラグのクリア
- *
- *  割込み属性が設定されていない割込み要求ラインに対して割込み要求禁止
- *  フラグをクリアしようとした場合には，falseを返す．
+ */
+Inline void
+enable_int(INTNO intno)
+{
+}
+
+/*
+ *  割込み要求がクリアできる状態か？
  */
 Inline bool_t
-enable_int(INTNO intno)
+check_intno_clear(INTNO intno)
 {
 	return(true);
 }
@@ -215,6 +220,23 @@ enable_int(INTNO intno)
  */
 Inline void
 clear_int(INTNO intno)
+{
+}
+
+/*
+ *  割込みが要求できる状態か？
+ */
+Inline bool_t
+check_intno_raise(INTNO intno)
+{
+	return(true);
+}
+
+/*
+ *  割込みの要求
+ */
+Inline void
+raise_int(INTNO intno)
 {
 }
 
@@ -235,7 +257,7 @@ extern void	dispatch(void);
 /*
  *  非タスクコンテキストからのディスパッチ要求
  */
-#define request_dispatch()
+#define request_dispatch_retint()
 
 /*
  *  ディスパッチャの動作開始

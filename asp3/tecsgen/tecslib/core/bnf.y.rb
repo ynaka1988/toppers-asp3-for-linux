@@ -3,7 +3,7 @@
 #  TECS Generator
 #      Generator for TOPPERS Embedded Component System
 #  
-#   Copyright (C) 2008-2014 by TOPPERS Project
+#   Copyright (C) 2008-2018 by TOPPERS Project
 #--
 #   上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
 #   ア（本ソフトウェアを改変したものを含む．以下同じ）を使用・複製・改
@@ -34,7 +34,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 #  
-#   $Id: bnf.y.rb 2418 2016-01-04 12:17:36Z okuma-top $
+#   $Id: bnf.y.rb 2850 2018-04-01 12:38:45Z okuma-top $
 #++
 
 class Generator
@@ -377,7 +377,9 @@ struct_specifier		# mikan
 		}
         | STRUCT
 		{
-			result = StructType.new()
+			# tag が無い場合、内部名を与える
+			result = StructType.new( :"TAG__#{@@no_struct_tag_num}__" )
+			@@no_struct_tag_num += 1
 			StructType.set_define( true )
 		}
 	   '{' struct_declaration_list '}'
@@ -708,6 +710,7 @@ initializer_list
 component_description
         : component_description specified_statement
         | component_description location_information
+        | component_description tool_info
         | 
 
 specified_statement
@@ -737,7 +740,7 @@ statement
         | region
         | import
         | import_C
-        | signature_plugin
+        | generate_statement
         | error   # エラー回復ポイント
 
 	
@@ -760,6 +763,8 @@ statement_specifier
 		{ result = [ :ID, val[2] ] }
         | PROTOTYPE                                          # cell
 		{ result = [ :PROTOTYPE ] }
+        | RESTRICT  '(' restrict_list ')'                    # cell
+		{ result = [ :RESTRICT, val[2] ] }
         | SINGLETON  { result = [:SINGLETON] }               # celltype, composite
         | IDX_IS_ID  { result = [:IDX_IS_ID] }               # celltype, composite (composite: no-effective)
         | ACTIVE     { result = [:ACTIVE] }                  # celltype, composite
@@ -780,6 +785,24 @@ alloc
 #		{  result = [ val[0], val[ ], val[ ], val[ ] ] }
 #        | IDENTIFIER '.' '*' '.' '*'               '=' initializer
 #		{  result = [ val[0], val[ ], val[ ], val[ ] ] }
+
+restrict_list
+        : restrict
+		{	result = [val[0]]		}
+        | restrict_list ',' restrict
+		{	result << val[2]		}
+
+restrict
+        : port_name '=' '{' region_name_list '}'
+		{	result = [ val[0].val, nil, val[3] ]		}
+        | port_name '.' IDENTIFIER '=' '{' region_name_list '}'
+		{	result = [ val[0].val, val[2].val, val[5] ]		}
+
+region_name_list
+        : namespace_identifier
+		{	result = [val[0]]		}
+        | region_name_list ',' namespace_identifier
+		{	result << val[2]		}
 
 const_statement
         : declaration   # 定数定義
@@ -811,7 +834,7 @@ import
         | IMPORT '(' AB_STRING_LITERAL ')' ';'
 		{ Import.new( val[2], true ) }
 
-signature_plugin
+generate_statement
 #        : GENERATE '(' plugin_name ',' namespace_identifier ',' STRING_LITERAL ')' ';'  #1ok signature plugin
         : GENERATE '(' plugin_name ',' namespace_identifier ',' plugin_arg ')' ';'  #1ok signature plugin
 		{ Generate.new( val[2].val, val[4], val[6] ) }
@@ -1280,6 +1303,11 @@ composite_celltype_statement_specifier_list
 			Generator.add_statement_specifier val[0]
 			result = [ val[0] ]
 		}
+        | composite_celltype_statement_specifier_list ',' composite_celltype_statement_specifier
+		{
+			Generator.add_statement_specifier val[2]
+			result = val[0] << val[2]
+		}
 
 composite_celltype_statement_specifier
         : ALLOCATOR '(' alloc_list2 ')'		{ result = [ :ALLOCATOR, val[2] ] }
@@ -1329,6 +1357,7 @@ internal_join_list
         :   # 空行  061007
         | internal_join_list specified_join
         | internal_join_list external_join
+        | internal_join_list reverse_join
 
 external_join  # cell 内に記述する呼び口の外部結合
         : internal_cell_elem_name '=>' COMPOSITE '.' export_name ';'
@@ -1404,17 +1433,26 @@ region_statement
 
 region_cell
         : cell
-        | spec_L region_cell_specifier_list spec_R cell
+        | spec_L statement_specifier_list spec_R cell
+		{
+			obj = val[3]
+			if obj.kind_of?( Cell ) then
+			else
+              Generator.get_statement_specifier   # クリア
+              Generator.error( "G9999 unexpected specifier"  )
+			end
+		}
+#        | spec_L region_cell_specifier_list spec_R cell
 
-region_cell_specifier_list
-        : region_cell_specifier
-		{ Generator.add_statement_specifier val[0] }
-        | region_cell_specifier_list region_cell_specifier
-		{ Generator.add_statement_specifier val[2] }
+# region_cell_specifier_list
+#         : region_cell_specifier
+# 		{ Generator.add_statement_specifier val[0] }
+#         | region_cell_specifier_list region_cell_specifier
+# 		{ Generator.add_statement_specifier val[2] }
 
-region_cell_specifier
-        : ALLOCATOR '(' alloc_list ')'
-		{ result = [ :ALLOCATOR, val[2] ] }
+# region_cell_specifier
+#         : ALLOCATOR '(' alloc_list ')'
+# 		{ result = [ :ALLOCATOR, val[2] ] }
 
 
 namespace_region_name
@@ -1469,6 +1507,27 @@ bar_list
         | { result = [] }
 
 
+#  JSON object
+tool_info        : TOOL_INFO '(' JSON_string ')' JSON_object { TOOL_INFO.new( val[2].to_sym, val[4] ) }
+JSON_object      : '{' JSON_property_list   '}'              {  result = val[1] }
+JSON_property_list : JSON_string ':' JSON_value              { result = { val[0].to_sym => val[2] } }
+                 | JSON_property_list ',' JSON_string ':' JSON_value
+                                                             { val[0][ val[2].to_sym ] = val[4] }
+JSON_value       : JSON_string | JSON_number | JSON_object | JSON_array
+                 | TRUE { result=val[0].val } | FALSE  { result=val[0].val } # JSON_NULL # null not suppoted
+JSON_array       : '[' JSON_array_list ']'                   { result = val[1]  }
+                 | '['  ']'                                  { result = []  }
+JSON_array_list  : JSON_value                                { result = [ val[0] ] }
+                 | JSON_array_list ',' JSON_value            { val[0] << val[2] }
+JSON_string      : STRING_LITERAL                            { result = val[0].val.gsub!( /\"(.*)\"/, "\\1" ) }
+JSON_number      : INTEGER_CONSTANT                          { result = val[0].val.to_i }
+                 | FLOATING_CONSTANT                         { result = val[0].val.to_f }
+                 | '-' INTEGER_CONSTANT                      { result = - val[0].val.to_i }
+                 | '-' FLOATING_CONSTANT                     { result = - val[0].val.to_f }
+                 | '+' INTEGER_CONSTANT                      { result = val[0].val.to_i }
+                 | '+' FLOATING_CONSTANT                     { result = val[0].val.to_f }
+
+
 end
 
 ---- inner
@@ -1493,6 +1552,7 @@ end
     'import' => :IMPORT,
     'import_C' => :IMPORT_C,
     'generate' => :GENERATE,
+    '__tool_info__' => :TOOL_INFO,
 
     # types
     'void'    => :VOID,
@@ -1589,6 +1649,7 @@ end
     # cell
     'allocator' => :ALLOCATOR,
     'prototype' => :PROTOTYPE,
+    'restrict'  => :RESTRICT,
 
     # FuncType
     'oneway' => :ONEWAY,
@@ -1627,6 +1688,9 @@ end
 
   # すべての構文解析が完了した
   @@b_end_all_parse = false
+
+  # tag なし struct
+  @@no_struct_tag_num = 0
 
   def self.parse( file_name, plugin = nil, b_reuse = false )
     # パーサインスタンスを生成(別パーサで読み込む)
@@ -1742,7 +1806,7 @@ end
                 elsif line =~ /\A.*\n/     # 改行 \n は '.' にマッチしない
                   string += line
                   # この位置では error メソッドは使えない (token 読出し前)
-                  puts "error: #{file} line #{lineno}: string literal has newline without escape"
+                  puts "#{file}:#{lineno}:#{col}: error: string literal has newline without escape"
                   @@n_error += 1
                 end
               else
@@ -1783,10 +1847,11 @@ end
                   string = $1 + "\\\n"
                   b_in_string = true
                   # この位置では error メソッドは使えない (token 読出し前) # mikan cdl_error ではない
-                  puts "error: #{file} line #{lineno}: string literal has newline without escape"
+                  puts "#{file}:#{lineno}:#{col}: error: string literal has newline without escape"
                   @@n_error += 1
                 # 山括弧で囲まれた文字列
-                when /\A<[0-9A-Za-z_\. \/]+>/   # AB: angle bracke
+                # when /\A<[0-9A-Za-z_\. \/]+>/   # AB: angle bracke
+                when /\A<(?:[^>\\]|\\.)*>/   # これはうまく行くようだ
                   @q << [:AB_STRING_LITERAL, Token.new($&, file, lineno, col)]
                 # 行コメント
                 when /\A\/\/.*$/
@@ -1882,6 +1947,7 @@ end
 
   @@n_error = 0
   @@n_warning = 0
+  @@n_info = 0
 
   # このメソッドは構文解析、意味解析からのみ呼出し可（コード生成でエラー発生は不適切）
   def self.error( msg, *arg )
@@ -1903,7 +1969,8 @@ end
 
     # import_C の中でのエラー？
     if @@import_C then
-      C_parser.error( msg )
+      # C_parser.error( msg )
+      locale = C_parser.current_locale
     else
 
       # Node の記憶する 位置 (locale) を使用した場合、変更以前に比べ、
@@ -1914,11 +1981,11 @@ end
       if @@b_end_all_parse == false || locale == nil then
         locale = @@current_locale[ @@generator_nest ]
       end
-      if locale then
-        Console.puts "error: #{locale[0]}: line #{locale[1]} #{msg}"
-      else
-        Console.puts "error: #{msg}"
-      end
+    end
+    if locale then
+      Console.puts "#{locale[0]}:#{locale[1]}:#{locale[2]}: error: #{msg}"
+    else
+      Console.puts "error: #{msg}"
     end
   end
 
@@ -1942,16 +2009,51 @@ end
 
     # import_C の中でのウォーニング？
     if @@import_C then
-      C_parser.warning( msg )
+      # C_parser.warning( msg )
+      locale = C_parser.current_locale
     else
       if @@b_end_all_parse == false || locale == nil then
         locale = @@current_locale[ @@generator_nest ]
       end
-      if locale then
-        Console.puts "warning: #{locale[0]}: line #{locale[1]} #{msg}"
-      else
-        Console.puts "warning: #{msg}"
+    end
+    if locale then
+      Console.puts "#{locale[0]}:#{locale[1]}:#{locale[2]}: warning: #{msg}"
+    else
+      Console.puts "warning: #{msg}"
+    end
+  end
+
+  # このメソッドは構文解析、意味解析からのみ呼出し可
+  def self.info( msg, *arg )
+    locale = nil
+    self.info2( locale, msg, *arg )
+  end
+
+  def self.info2( locale, msg, *arg )
+    @@n_info += 1
+
+    msg = TECSMsg.get_info_message( msg )
+    # $1, $2, ... を arg で置換
+    count = 1
+    arg.each{ |a|
+      str = TECSIO.str_code_convert( msg, a.to_s )
+      msg.sub!( /\$#{count}/, str )
+      count += 1
+    }
+
+    # import_C の中でのウォーニング？
+    if @@import_C then
+      # C_parser.info( msg )
+      locale = C_parser.current_locale
+    else
+      if @@b_end_all_parse == false || locale == nil then
+        locale = @@current_locale[ @@generator_nest ]
       end
+    end
+    if locale then
+      Console.puts "#{locale[0]}:#{locale[1]}:#{locale[2]}: info: #{msg}"
+    else
+      Console.puts "info: #{msg}"
     end
   end
 
@@ -1963,8 +2065,16 @@ end
     @@n_warning
   end
 
+  def self.get_n_info
+    @@n_info
+  end
+
   def self.get_nest
     @@generator_nest
+  end
+
+  def self.parsing_C?
+    @@import_C
   end
 
   #===  '[' specifier 始め

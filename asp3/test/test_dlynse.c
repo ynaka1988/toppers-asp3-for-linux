@@ -4,7 +4,7 @@
  * 
  *  Copyright (C) 2000-2003 by Embedded and Real-Time Systems Laboratory
  *                              Toyohashi Univ. of Technology, JAPAN
- *  Copyright (C) 2007-2015 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2007-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -36,7 +36,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: test_dlynse.c 482 2016-01-03 13:12:51Z ertl-hiro $
+ *  $Id: test_dlynse.c 1114 2018-12-08 02:16:57Z ertl-hiro $
  */
 
 /*
@@ -56,11 +56,13 @@
  *  SIL_DLY_TIM1とSIL_DLY_TIM2を参照するために，カーネル用のヘッダファ
  *  イルをインクルードする．
  */
+#define TOPPERS_MACRO_ONLY
 #include "target_kernel_impl.h"
+#undef TOPPERS_MACRO_ONLY
 
-#define	NO_LOOP		ULONG_C(1000000)
+#define	NO_LOOP		1000000UL
 
-SYSTIM	empty_time;
+HRTCNT	empty_time;
 
 static void
 test_empty(void)
@@ -73,6 +75,11 @@ test_empty(void)
 	}
 	etime = fch_hrt();
 	empty_time = etime - stime;
+#ifdef TCYC_HRTCNT
+	if (etime < stime) {
+		empty_time += TCYC_HRTCNT;
+	}
+#endif /* TCYC_HRTCNT */
 	syslog(LOG_NOTICE, "empty loop: %u", empty_time);
 	(void) syslog_fls_log();
 }
@@ -80,7 +87,7 @@ test_empty(void)
 static void
 test_dly_nse(ulong_t dlytim)
 {
-	HRTCNT	stime, etime;
+	HRTCNT	stime, etime, diff;
 	ulong_t	delay_time;
 	volatile ulong_t	i;
 
@@ -89,7 +96,13 @@ test_dly_nse(ulong_t dlytim)
 		sil_dly_nse(dlytim);
 	}
 	etime = fch_hrt();
-	delay_time = ((etime - stime) - empty_time) / 1000U;
+	diff = etime - stime;
+#ifdef TCYC_HRTCNT
+	if (etime < stime) {
+		diff += TCYC_HRTCNT;
+	}
+#endif /* TCYC_HRTCNT */
+	delay_time = (diff - empty_time) / 1000U;
 	syslog(LOG_NOTICE, "sil_dly_nse(%lu): %lu %s", dlytim, delay_time,
 									delay_time >= dlytim ? "OK" : "NG");
 	(void) syslog_fls_log();
@@ -110,6 +123,10 @@ main_task(intptr_t exinf)
 	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 3);
 	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 4);
 	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 5);
+	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 6);
+	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 7);
+	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 8);
+	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 9);
 	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 10);
 	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 20);
 	test_dly_nse(SIL_DLY_TIM1 + SIL_DLY_TIM2 * 50);

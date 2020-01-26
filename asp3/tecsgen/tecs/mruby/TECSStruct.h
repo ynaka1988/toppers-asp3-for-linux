@@ -32,11 +32,13 @@
  *   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *   の責任を負わない．
  *  
- *   $Id: TECSStruct.h 2227 2015-08-30 12:06:24Z okuma-top $ 
+ *   $Id: TECSStruct.h 2634 2017-04-08 12:28:00Z okuma-top $ 
  */
 
 #ifndef TECSStruct_h__
 #define TECSStruct_h__
+
+#ifndef TECSGEN
 
 #define MEMBER_GET_SET_INT( TAG, MEMBER, Type, TYPE )					\
 	static mrb_value													\
@@ -104,8 +106,6 @@
 	static mrb_value													\
 	Struct_ ## TAG ## _initialize( mrb_state *mrb, mrb_value self)		\
 	{																	\
-		mrb_int	length;													\
-		struct  TAG *structBody;										\
 																		\
 		DATA_TYPE( self ) = &Struct ## TAG ## Body_mrb_data_type;		\
 		DATA_PTR( self ) = mrb_malloc(mrb, sizeof(struct TAG)); 		\
@@ -122,11 +122,11 @@
 		a = mrb_define_class_under(mrb, TECS, "Struct" #TAG, mrb->object_class); \
 		MRB_SET_INSTANCE_TT(a, MRB_TT_DATA);							\
 																		\
-		mrb_define_method(mrb, a, "initialize", Struct_ ## TAG ## _initialize,            ARGS_NONE());
+		mrb_define_method(mrb, a, "initialize", Struct_ ## TAG ## _initialize,            MRB_ARGS_NONE());
 
 #define  STRUCT_INIT_MEMBER( TAG, MEMBER )								\
-		mrb_define_method(mrb, a, #MEMBER,      Struct_ ## TAG ## _ ## MEMBER ## _aget,   ARGS_NONE()); \
-		mrb_define_method(mrb, a, #MEMBER "=",  Struct_ ## TAG ## _ ## MEMBER ## _aset,   ARGS_REQ(1));
+		mrb_define_method(mrb, a, #MEMBER,      Struct_ ## TAG ## _ ## MEMBER ## _aget,   MRB_ARGS_NONE()); \
+		mrb_define_method(mrb, a, #MEMBER "=",  Struct_ ## TAG ## _ ## MEMBER ## _aset,   MRB_ARGS_REQ(1));
 
 
 #define  STRUCT_INIT_END( TAG )											\
@@ -139,5 +139,14 @@
 			|| strcmp( DATA_TYPE( value )->struct_name, "TECS::Struct" #tag ) ) \
 			mrb_raise(mrb, E_TYPE_ERROR, "not Struct or tag mismatch"); \
 	}while(0)
+
+#else  /* TECSGEN */
+
+#define MEMBER_GET_SET_INT( TAG, MEMBER, Type, TYPE )
+#define MEMBER_GET_SET_FLOAT( TAG, MEMBER )
+#define STRUCT_INIT_MEMBER( t_TAG, MEMBER )
+#define STRUCT_CLASS( t_rtsk )
+
+#endif /* TECSGEN */
 
 #endif /* TECSStruct_h__ */
