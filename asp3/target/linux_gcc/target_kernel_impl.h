@@ -358,47 +358,51 @@ t_get_ipm(void)
 								&& (intno) != SIGKILL && (intno) != SIGSTOP)
 
 /*
- *  割込み要求禁止フラグのセット
- *
- *  割込み属性が設定されていない割込み要求ラインに対して割込み要求禁止
- *  フラグをセットしようとした場合には，falseを返す．
+ *  割込み属性の設定のチェック
  */
 Inline bool_t
+check_intno_cfg(INTNO intno)
+{
+	return(!sigismember(&(sigmask_table[0]), intno)
+				&& sigismember(&(sigmask_table[7]), intno));
+}
+
+/*
+ *  割込み要求禁止フラグのセット
+ */
+Inline void
 disable_int(INTNO intno)
 {
-	if (sigismember(&(sigmask_table[0]), intno)
-				|| !sigismember(&(sigmask_table[7]), intno)) {
-		return(false);
-	}
 	sigaddset((sigset_t *)&sigmask_disint, intno);
 	set_sigmask();
-	return(true);
 }
 
 /*
  *  割込み要求禁止フラグのクリア
- *
- *  割込み属性が設定されていない割込み要求ラインに対して割込み要求禁止
- *  フラグをクリアしようとした場合には，falseを返す．
  */
-Inline bool_t
+Inline void
 enable_int(INTNO intno)
 {
-	if (sigismember(&(sigmask_table[0]), intno)
-				|| !sigismember(&(sigmask_table[7]), intno)) {
-		return(false);
-	}
 	sigdelset((sigset_t *)&sigmask_disint, intno);
 	set_sigmask();
+}
+
+/*
+ *  割込みが要求できる状態か？
+ */
+Inline bool_t
+check_intno_raise(INTNO intno)
+{
 	return(true);
 }
 
 /*
- *  割込み要求のクリア
+ *  割込みの要求
  */
 Inline void
-clear_int(INTNO intno)
+raise_int(INTNO intno)
 {
+	raise(intno);
 }
 
 /*
