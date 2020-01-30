@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2006-2016 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2006-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_kernel_impl.c 515 2016-01-13 02:21:39Z ertl-hiro $
+ *  $Id: target_kernel_impl.c 1116 2018-12-10 05:04:46Z ertl-hiro $
  */
 
 /*
@@ -118,7 +118,11 @@ dispatcher(void)
 	sigassignset(&sigmask, &saved_sigmask);
 	sigprocmask(SIG_SETMASK, &sigmask, NULL);
 	while (true) {
+#ifdef TOPPERS_CUSTOM_IDLE
+		TOPPERS_CUSTOM_IDLE();
+#else /* TOPPERS_CUSTOM_IDLE */
 		sigsuspend(&sigmask);			/* 割込み待ち */
+#endif /* TOPPERS_CUSTOM_IDLE */
 	}
 }
 
@@ -129,7 +133,9 @@ void
 dispatch(void)
 {
 #ifdef TOPPERS_SUPPORT_OVRHDR
-	ovrtimer_stop();					/* オーバランタイマの停止 */
+	if (p_runtsk->staovr) {				/* オーバランタイマの停止 */
+		p_runtsk->leftotm = target_ovrtimer_stop();
+	}
 #endif /* TOPPERS_SUPPORT_OVRHDR */
 	if (_setjmp(p_runtsk->tskctxb.env) == 0) {
 		LOG_DSP_ENTER(p_runtsk);
@@ -138,7 +144,9 @@ dispatch(void)
 	}
 	LOG_DSP_LEAVE(p_runtsk);
 #ifdef TOPPERS_SUPPORT_OVRHDR
-	ovrtimer_start();					/* オーバランタイマの動作開始 */
+	if (p_runtsk->staovr) {				/* オーバランタイマの動作開始 */
+		target_ovrtimer_start(p_runtsk->leftotm);
+	}
 #endif /* TOPPERS_SUPPORT_OVRHDR */
 }
 
@@ -157,6 +165,11 @@ dispatch_handler(int sig, siginfo_t *p_info, void *p_ctx)
 
 	if (p_runtsk != p_schedtsk) {
 		if (p_runtsk != NULL) {
+#ifdef TOPPERS_SUPPORT_OVRHDR
+			if (p_runtsk->staovr) {		/* オーバランタイマの停止 */
+				p_runtsk->leftotm = target_ovrtimer_stop();
+			}
+#endif /* TOPPERS_SUPPORT_OVRHDR */
 			if (_setjmp(p_runtsk->tskctxb.env) == 0) {
 				LOG_DSP_ENTER(p_runtsk);
 				dispatcher();
@@ -168,10 +181,12 @@ dispatch_handler(int sig, siginfo_t *p_info, void *p_ctx)
 			assert(0);
 		}
 		LOG_DSP_LEAVE(p_runtsk);
-	}
 #ifdef TOPPERS_SUPPORT_OVRHDR
-	ovrtimer_start();					/* オーバランタイマの動作開始 */
+		if (p_runtsk->staovr) {			/* オーバランタイマの動作開始 */
+			target_ovrtimer_start(p_runtsk->leftotm);
+		}
 #endif /* TOPPERS_SUPPORT_OVRHDR */
+	}
 
 	/*
 	 *  シグナルハンドラからのリターン後のシグナルマスクがsaved_sigmask
@@ -221,7 +236,7 @@ call_exit_kernel(void)
 	 */
 	raise(SIGUSR2);
 	assert(0);
-	while (true);
+	while (true) ;
 }
 
 /*
@@ -231,7 +246,9 @@ void
 start_r(void)
 {
 #ifdef TOPPERS_SUPPORT_OVRHDR
-	ovrtimer_start();					/* オーバランタイマの動作開始 */
+	if (p_runtsk->staovr) {				/* オーバランタイマの動作開始 */
+		target_ovrtimer_start(p_runtsk->leftotm);
+	}
 #endif /* TOPPERS_SUPPORT_OVRHDR */
 	unlock_cpu();
 	(*(p_runtsk->p_tinib->task))(p_runtsk->p_tinib->exinf);
@@ -367,43 +384,3 @@ main()
 	assert(0);
 	return(0);
 }
-
-/*
- *  カーネルの割り付けるメモリ領域の管理
- *
- *  TLSF（オープンソースのメモリ管理ライブラリ）を用いて実現．
- */
-#ifdef TOPPERS_SUPPORT_DYNAMIC_CRE
-
-#include "tlsf.h"
-
-static bool_t	tlsf_initialized = false;
-
-void
-initialize_kmm(void)
-{
-	if (init_memory_pool(kmmsz, kmm) != -1) {
-		tlsf_initialized = true;
-	}
-}
-
-void *
-kernel_malloc(size_t size)
-{
-	if (tlsf_initialized) {
-		return(malloc_ex(size, kmm));
-	}
-	else {
-		return(NULL);
-	}
-}
-
-void
-kernel_free(void *ptr)
-{
-	if (tlsf_initialized) {
-		free_ex(ptr, kmm);
-	}
-}
-
-#endif /* TOPPERS_SUPPORT_DYNAMIC_CRE */

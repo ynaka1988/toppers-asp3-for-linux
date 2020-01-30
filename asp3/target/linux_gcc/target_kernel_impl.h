@@ -3,7 +3,7 @@
  *      Toyohashi Open Platform for Embedded Real-Time Systems/
  *      Advanced Standard Profile Kernel
  * 
- *  Copyright (C) 2006-2016 by Embedded and Real-Time Systems Laboratory
+ *  Copyright (C) 2006-2018 by Embedded and Real-Time Systems Laboratory
  *              Graduate School of Information Science, Nagoya Univ., JAPAN
  * 
  *  上記著作権者は，以下の(1)〜(4)の条件を満たす場合に限り，本ソフトウェ
@@ -35,7 +35,7 @@
  *  アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
  *  の責任を負わない．
  * 
- *  $Id: target_kernel_impl.h 515 2016-01-13 02:21:39Z ertl-hiro $
+ *  $Id: target_kernel_impl.h 1127 2018-12-20 16:48:57Z ertl-hiro $
  */
 
 /*
@@ -552,13 +552,23 @@ define_exc(EXCNO excno, FP exc_entry)
  */
 #ifdef TOPPERS_SUPPORT_OVRHDR
 
-#define OVRTIMER_START() do {					\
-			if (_kernel_p_runtsk != NULL) {		\
-				_kernel_ovrtimer_start();		\
-			}									\
+/*
+ *  ターゲット非依存部のovrtimer_startとovrtimer_stopを使用しない．
+ */
+#define OMIT_OVRTIMER_START
+#define OMIT_OVRTIMER_STOP
+
+#define OVRTIMER_START() do {												\
+			if (_kernel_p_runtsk != NULL && _kernel_p_runtsk->staovr) {		\
+				_kernel_target_ovrtimer_start(_kernel_p_runtsk->leftotm);	\
+			}																\
 		} while (0)
 
-#define OVRTIMER_STOP()		_kernel_ovrtimer_stop()
+#define OVRTIMER_STOP() do {												\
+			if (_kernel_p_runtsk != NULL && _kernel_p_runtsk->staovr) {		\
+				_kernel_p_runtsk->leftotm = _kernel_target_ovrtimer_stop();	\
+			}																\
+		} while (0)
 
 #else /* TOPPERS_SUPPORT_OVRHDR */
 
@@ -597,9 +607,7 @@ void _kernel_##inthdr##_##inhno(int sig,								\
 		if (_kernel_p_runtsk != _kernel_p_schedtsk) {					\
 			raise(SIGUSR2);		/* ディスパッチャの起動を要求する */	\
 		}																\
-		else {															\
-			OVRTIMER_START();											\
-		}																\
+		OVRTIMER_START();												\
 	}																	\
 	_kernel_intpri_value = saved_intpri;								\
 	unlock_cpu();														\
@@ -641,9 +649,7 @@ void _kernel_##exchdr##_##excno(int sig,									\
 			if (_kernel_p_runtsk != _kernel_p_schedtsk) {					\
 				raise(SIGUSR2);		/* ディスパッチャの起動を要求する */	\
 			}																\
-			else {															\
-				OVRTIMER_START();											\
-			}																\
+			OVRTIMER_START();												\
 		}																	\
 		unlock_cpu();														\
 	}																		\
@@ -706,11 +712,39 @@ extern void	target_exit(void) NoReturn;
 #endif /* TOPPERS_MACRO_ONLY */
 
 /*
- *  カーネルの割り付けるメモリ領域の管理
+ *  TLSFを用いたメモリプール管理機能
  *
- *  target_kernel_impl.cに，TLSF（オープンソースのメモリ管理ライブラリ）
- *  を用いたメモリ管理ルーチンを含めている．
+ *  TLSF（オープンソースのメモリ管理ライブラリ）を用いてメモリプール領
+ *  域の管理を行うための定義など．
  */
-#define OMIT_KMM_ALLOCONLY
+#ifdef TOPPERS_SUPPORT_DYNAMIC_CRE
 
+#define OMIT_MEMPOOL_DEFAULT
+
+#include "tlsf.h"
+
+Inline bool_t
+initialize_mempool(MB_T *mempool, size_t size)
+{
+	if (init_memory_pool(size, mempool) != -1) {
+		return(true);
+	}
+	else {
+		return(false);
+	}
+}
+
+Inline void *
+malloc_mempool(MB_T *mempool, size_t size)
+{
+	return(malloc_ex(size, mempool));
+}
+
+Inline void
+free_mempool(MB_T *mempool, void *ptr)
+{
+	free_ex(ptr, mempool);
+}
+
+#endif /* TOPPERS_SUPPORT_DYNAMIC_CRE */
 #endif /* TOPPERS_TARGET_KERNEL_IMPL_H */

@@ -37,7 +37,7 @@
 #   アの利用により直接的または間接的に生じたいかなる損害に関しても，そ
 #   の責任を負わない．
 # 
-#   $Id: target_kernel.trb 588 2016-02-05 12:54:58Z ertl-hiro $
+#   $Id: target_kernel.trb 1149 2019-01-14 04:24:51Z ertl-hiro $
 # 
 
 #
@@ -92,28 +92,28 @@ $kernelCfgC.comment_header("Target-dependent Definitions (Mac OS X)")
 #  SIGUSR2（カーネルが利用）
 #
 targetIntpri = {}
-targetIntpri[$SIGKILL.val] = -7
-targetIntpri[$SIGSTOP.val] = -7
-targetIntpri[$SIGUSR2.val] = -7
+targetIntpri[$SIGKILL] = -7
+targetIntpri[$SIGSTOP] = -7
+targetIntpri[$SIGUSR2] = -7
 
 #
 #  割込み要求ラインに関するターゲット依存のエラーチェック
 #
-$cfgData[:CFG_INT].sort.each do |key, params|
+$cfgData[:CFG_INT].sort.each do |_, params|
   if (params[:intatr] & $TA_EDGE) == 0
-    error_ercd("E_RSATR", params, "Level trigger is not supported" \
-							" for intno `#{params[:intno]}' in CFG_INT")
+    error_ercd("E_RSATR", params, "level trigger is not supported " \
+											"for %%intno in %apiname")
   end
 end
 
 #
 #  CPU例外ハンドラに関する処理
 #
-$cfgData[:DEF_EXC].sort.each do |key, params|
+$cfgData[:DEF_EXC].sort.each do |_, params|
   #	割込みハンドラとの重複チェック
   if $cfgData[:DEF_INH].has_key?(params[:excno].val)
     inhnoParams = $cfgData[:DEF_INH][params[:excno].val]
-    error_ercd("E_OBJ", params, "excno `#{params[:excno]}' in DEF_EXC " \
+    error_ercd("E_OBJ", params, "%%excno in %apiname " \
 						"is duplicated with inhno `#{inhnoParams[:inhno]}'")
   end
 
@@ -128,9 +128,9 @@ end
 #  SIGBUS（デバッグ用）
 #  SIGSEGV（デバッグ用）
 #
-targetIntpri[$SIGINT.val] = -7
-targetIntpri[$SIGBUS.val] = -7
-targetIntpri[$SIGSEGV.val] = -7
+targetIntpri[$SIGINT] = -7
+targetIntpri[$SIGBUS] = -7
+targetIntpri[$SIGSEGV] = -7
 
 #
 #  割込みハンドラの初期化に必要な情報
@@ -139,22 +139,23 @@ targetIntpri[$SIGSEGV.val] = -7
 #
 #  定義する割込みハンドラの数
 #
-$kernelCfgC.append(<<EOS)
+$kernelCfgC.add(<<EOS)
 #define TNUM_DEF_INHNO	#{$cfgData[:DEF_INH].size}
 const uint_t _kernel_tnum_def_inhno = TNUM_DEF_INHNO;
-
 EOS
 
 if $cfgData[:DEF_INH].size != 0
   #
   #  割込みハンドラのエントリ
   #
-  $cfgData[:DEF_INH].each do |key, params|
+  $cfgData[:DEF_INH].each do |_, params|
     if (params[:inhatr] & $TA_NONKERNEL) == 0
       intnoVal = $toIntnoVal[params[:inhno].val]
       intnoParams = $cfgData[:CFG_INT][intnoVal]
-      $kernelCfgC.add("INTHDR_ENTRY(#{params[:inhno]}, " \
+      if !intnoParams.nil?			# CFG_INTがない場合の対策
+        $kernelCfgC.add("INTHDR_ENTRY(#{params[:inhno]}, " \
 						"#{params[:inthdr]}, #{intnoParams[:intpri]})")
+      end
     end
   end
   $kernelCfgC.add
@@ -163,7 +164,7 @@ if $cfgData[:DEF_INH].size != 0
   #  割込みハンドラ初期化ブロック
   #
   $kernelCfgC.add("const INHINIB _kernel_inhinib_table[TNUM_DEF_INHNO] = {")
-  $cfgData[:DEF_INH].each_with_index do |(key, params), index|
+  $cfgData[:DEF_INH].each_with_index do |(_, params), index|
     $kernelCfgC.add(",") if index > 0
     intnoVal = $toIntnoVal[params[:inhno].val]
     intnoParams = $cfgData[:CFG_INT][intnoVal]
@@ -172,8 +173,10 @@ if $cfgData[:DEF_INH].size != 0
     else
       inthdr = "(FP)(#{params[:inthdr]})"
     end
-    $kernelCfgC.append("\t{ (#{params[:inhno]}), (#{params[:inhatr]}), " \
+    if !intnoParams.nil?			# CFG_INTがない場合の対策
+      $kernelCfgC.append("\t{ (#{params[:inhno]}), (#{params[:inhatr]}), " \
 								"#{inthdr}, (#{intnoParams[:intpri]}) }")
+    end
   end
   $kernelCfgC.add
   $kernelCfgC.add2("};")
@@ -212,7 +215,7 @@ $kernelCfgC.add2("};")
 #  割込み要求禁止フラグ実現のための変数の初期値
 #
 sigmask_disint_init = 0
-$cfgData[:CFG_INT].each do |key, params|
+$cfgData[:CFG_INT].each do |_, params|
   if (params[:intatr] & $TA_ENAINT) == 0
     sigmask_disint_init |= (1 << (params[:intno] - 1))
   end
