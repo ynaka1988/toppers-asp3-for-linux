@@ -84,14 +84,9 @@
 #define CHECK_STACK_NONNULL		/* スタック領域の非NULLチェック */
 #define CHECK_MPF_ALIGN		4	/* 固定長メモリプール領域のアライン単位 */
 #define CHECK_MPF_NONNULL		/* 固定長メモリプール領域の非NULLチェック */
+#define CHECK_MPK_ALIGN		4	/* カーネルメモリプール領域のアライン単位 */
+#define CHECK_MPK_NONNULL		/* カーネルメモリプール領域の非NULLチェック */
 #define CHECK_MB_ALIGN		4	/* 管理領域のアライン単位 */
-
-/*
- *  トレースログに関する設定
- */
-#ifdef TOPPERS_ENABLE_TRACE
-#include "arch/tracelog/trace_log.h"
-#endif /* TOPPERS_ENABLE_TRACE */
 
 /*
  *  トレースログマクロのデフォルト定義
